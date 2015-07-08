@@ -30,7 +30,9 @@ public class ServiceImpl extends HessianServlet implements IFuzzySearch {
 	
 	@Override
 	public int DeleteFuzzyRecord(int pid) {
-		return fm.DeleteFuzzyRecord(pid);
+		FuzzyInstance fi = new FuzzyInstance();
+		
+		return fi.DeleteFuzzyRecord(pid, fm.GetDbConnection());
 	}
 
 	@Override
@@ -42,14 +44,15 @@ public class ServiceImpl extends HessianServlet implements IFuzzySearch {
 			String description,
 			String param
 								){
-		
-		return fm.InsertFuzzyRecord(pid, pn, mfs, catalog, description, param);
+		FuzzyInstance fi = new FuzzyInstance();
+		return fi.InsertFuzzyRecord(pid, pn, mfs, catalog, description, param, fm.GetDbConnection(), fm.getSegmenter());
 	}
 
 	@Override
 	public List<String> QueryFuzzyRecord(String fuzzyString) {
 
-		List<String> list = fm.GetQuery(fuzzyString);
+		FuzzyInstance fi = new FuzzyInstance();
+		List<String> list = fi.GetQuery(fuzzyString, fm.GetDbConnection(), fm.getSegmenter());
 		//list.add(fm.DebugGetQuery(fuzzyString));
 		return list;
 	}

@@ -58,6 +58,10 @@ public class fuzzysearch implements Serializable {
 
 	private CRFClassifier<CoreLabel> segmenter = null;
 
+	public CRFClassifier<CoreLabel> getSegmenter() {
+		return segmenter;
+	}
+
 	private String strSkipWord = ", . ; + - | / \\ ' \" : ? < > [ ] { } ! @ # $ % ^ & * ( ) ~ ` _ － ‐ ， （ ）";
 	private String[] SkipWord;
 
@@ -159,6 +163,20 @@ public class fuzzysearch implements Serializable {
 		}
 
 		return snum;
+	}
+	
+	public Connection GetDbConnection()
+	{
+		Connection conn = null;
+		
+		try {
+			conn = poolDataSource.getConnection();
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		return conn;
 	}
 	
 	protected List<IndexRate> GetAllIndexRate(String strSql) {
