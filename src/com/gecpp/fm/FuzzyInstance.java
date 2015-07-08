@@ -55,7 +55,7 @@ public class FuzzyInstance {
 			description.replaceAll("[\"\']", "");
 		if (param != null && !param.isEmpty())
 			param.replaceAll("[\"\']", "");
-
+ 
 		// 料號
 		scoreMap = segmentData(pn, segmenter);
 

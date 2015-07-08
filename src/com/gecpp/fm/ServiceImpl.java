@@ -10,7 +10,7 @@ import javax.servlet.ServletException;
 import com.caucho.hessian.server.HessianServlet;
 
 public class ServiceImpl extends HessianServlet implements IFuzzySearch {
-
+ 
 	protected fuzzysearch fm = null;
 
 	@Override 

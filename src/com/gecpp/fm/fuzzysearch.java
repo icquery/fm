@@ -57,7 +57,7 @@ public class fuzzysearch implements Serializable {
 	private String basedir;
 
 	private CRFClassifier<CoreLabel> segmenter = null;
-
+ 
 	public CRFClassifier<CoreLabel> getSegmenter() {
 		return segmenter;
 	}
