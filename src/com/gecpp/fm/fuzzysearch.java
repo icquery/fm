@@ -331,8 +331,8 @@ public class fuzzysearch implements Serializable {
 	public String DebugGetQuery(String strData) {
 		String[] strFullword = null;
 		List<String> sList = new ArrayList<String>();
-		String sNumber = "200";
-		String sTotal = "50";
+		String sNumber = "1000";
+		String sTotal = "100";
 		
 		if (strData != null && !strData.isEmpty())
 		{
@@ -373,8 +373,8 @@ public class fuzzysearch implements Serializable {
 		}
 
 		for (int i = 0; i < sList.size(); i++) {
-			strSql += "(select pn, weight from qeindex where word = '"
-					+ sList.get(i) + "' order by weight desc limit " + sNumber + ") ";
+			strSql += "(select pn, weight from qeindex where word like '"
+					+ sList.get(i) + "%' order by weight desc limit " + sNumber + ") ";
 			strSql += " union ";
 
 		}
@@ -388,8 +388,8 @@ public class fuzzysearch implements Serializable {
 	public List<String> GetQuery(String strData) {
 		String[] strFullword = null;
 		List<String> sList = new ArrayList<String>();
-		String sNumber = "200";
-		String sTotal = "50";
+		String sNumber = "1000";
+		String sTotal = "100";
 		
 		String sCombine = "";
 
@@ -441,8 +441,8 @@ public class fuzzysearch implements Serializable {
 				sList.add(stoken);
 				
 				for (int i = 0; i < sList.size(); i++) {
-					strSql += "(select pn, weight, fullword from qeindex where word = '"
-							+ sList.get(i) + "' order by weight desc limit " + sNumber + ") ";
+					strSql += "(select pn, weight, fullword from qeindex where word like '"
+							+ sList.get(i) + "%' order by weight desc limit " + sNumber + ") ";
 					strSql += " union ";
 
 				}
