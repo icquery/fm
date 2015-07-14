@@ -26,6 +26,7 @@ import java.sql.*;
 
 import javax.sql.DataSource;
 
+import com.mchange.v2.c3p0.ComboPooledDataSource;
 import com.mchange.v2.c3p0.DataSources;
 
 import edu.stanford.nlp.ie.crf.CRFClassifier;
@@ -65,7 +66,8 @@ public class fuzzysearch implements Serializable {
 	private String strSkipWord = ", . ; + - | / \\ ' \" : ? < > [ ] { } ! @ # $ % ^ & * ( ) ~ ` _ － ‐ ， （ ）";
 	private String[] SkipWord;
 
-	private DataSource poolDataSource = null;
+	private static DataSource  datasource;
+    private ComboPooledDataSource cpds;
 
 	public void fuzzysearch() {
 
@@ -102,6 +104,7 @@ public class fuzzysearch implements Serializable {
 		try
 
 		{
+			/*
 			Class.forName("org.postgresql.Driver").newInstance();
 			DataSource unpooled = DataSources.unpooledDataSource(ReaderUrl,
 					ReaderUser, ReaderPwd);
@@ -115,6 +118,18 @@ public class fuzzysearch implements Serializable {
 			overrides.put("maxStatements", "0");
 
 			poolDataSource = DataSources.pooledDataSource(unpooled, overrides);
+			*/
+			cpds = new ComboPooledDataSource();
+	        cpds.setDriverClass("org.postgresql.Driver"); //loads the jdbc driver
+	        cpds.setJdbcUrl(ReaderUrl);
+	        cpds.setUser(ReaderUser);
+	        cpds.setPassword(ReaderPwd);
+
+	        // the settings below are optional -- c3p0 can work with defaults
+	        cpds.setMinPoolSize(10);
+	        cpds.setAcquireIncrement(5);
+	        cpds.setMaxPoolSize(50);
+	        cpds.setMaxStatements(180);
 
 		} catch (Exception ee)
 
@@ -127,7 +142,8 @@ public class fuzzysearch implements Serializable {
 	public void closePostgrel()
 	{
 		try {
-			DataSources.destroy(poolDataSource);
+			
+			DataSources.destroy(cpds);
 		} catch (SQLException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -145,7 +161,7 @@ public class fuzzysearch implements Serializable {
 			ResultSet rs = null;
 
 			try {
-				con = poolDataSource.getConnection();
+				con = cpds.getConnection();
 				stmt = con.createStatement();
 				snum = stmt.executeUpdate(strSql);
 
@@ -170,7 +186,7 @@ public class fuzzysearch implements Serializable {
 		Connection conn = null;
 		
 		try {
-			conn = poolDataSource.getConnection();
+			conn = this.cpds.getConnection();
 		} catch (SQLException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -190,7 +206,7 @@ public class fuzzysearch implements Serializable {
 			ResultSet rs = null;
 
 			try {
-				con = poolDataSource.getConnection();
+				con = cpds.getConnection();
 				stmt = con.createStatement();
 				rs = stmt.executeQuery(strSql);
 				while (rs.next())
@@ -223,7 +239,7 @@ public class fuzzysearch implements Serializable {
 			ResultSet rs = null;
 
 			try {
-				con = poolDataSource.getConnection();
+				con = cpds.getConnection();
 				stmt = con.createStatement();
 				rs = stmt.executeQuery(strSql);
 				while (rs.next())
@@ -543,7 +559,7 @@ public class fuzzysearch implements Serializable {
 
 		try {
 
-			conWriter = poolDataSource.getConnection();
+			conWriter = cpds.getConnection();
 
 			String strSql = "INSERT INTO qeindexlog(keyword, sqlstr) VALUES(?, ?)";
             pst = conWriter.prepareStatement(strSql);
@@ -672,7 +688,7 @@ public class fuzzysearch implements Serializable {
 
 		try {
 
-			conWriter = poolDataSource.getConnection();
+			conWriter = cpds.getConnection();
 
 			String strSql = "INSERT INTO qeindex(word, page, weight, kind, pn, mfs, catalog, fullword) VALUES(?, ?, ?, ?, ?, ?, ?, ?)";
             pst = conWriter.prepareStatement(strSql);

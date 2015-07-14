@@ -11,14 +11,17 @@ import com.caucho.hessian.server.HessianServlet;
 
 public class ServiceImpl extends HessianServlet implements IFuzzySearch {
  
-	protected fuzzysearch fm = null;
+	protected static fuzzysearch fm = null;
 
 	@Override 
 	public void init(ServletConfig config) 
 	{
-		fm = new fuzzysearch();
-		fm.loadParams();
-		fm.connectPostgrel();
+		if(fm == null)
+		{
+			fm = new fuzzysearch();
+			fm.loadParams();
+			fm.connectPostgrel();
+		}
 		
 		try {
 			super.init(config);

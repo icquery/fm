@@ -91,7 +91,7 @@ public class FuzzyInstance {
 		
 		String[] strFullword = null;
 		List<String> sList = new ArrayList<String>();
-		String sNumber = "1000";
+		String sNumber = "500";
 		String sTotal = "100";
 		
 		String sCombine = "";
@@ -125,6 +125,9 @@ public class FuzzyInstance {
 				sKeyword = stoken;
 
 				List<String> segmented = segmenter.segmentString(stoken);
+				
+				//List<String> segmented = new ArrayList<String>();
+				//segmented.add(stoken);
 	
 				if (segmented != null) {
 					for (String element : segmented) {
