@@ -102,7 +102,7 @@ public class fuzzysearch implements Serializable {
 
 	public void connectPostgrel() {
 		
-		
+	
 		
 		try
 

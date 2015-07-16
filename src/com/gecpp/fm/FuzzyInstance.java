@@ -152,7 +152,7 @@ public class FuzzyInstance {
 				
 				for (int i = 0; i < sList.size(); i++) {
 					
-					// 為了效能，先排除數字跟單一個字的模糊搜尋
+					// 為了效能，先排除數字跟單一個字的模糊搜尋 
 					if(isNumeric(sList.get(i)) || sList.get(i).length() < 4)
 					{
 						strSql += "(select pn, weight, fullword from qeindex where word = '"
