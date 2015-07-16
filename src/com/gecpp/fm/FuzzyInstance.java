@@ -87,11 +87,13 @@ public class FuzzyInstance {
 	
 	public List<String> GetQuery(String strData, Connection conn, CRFClassifier<CoreLabel> segmenter) {
 		
+		long startTime = System.currentTimeMillis();
 		
+		long elapsedSqlTime = 0L;
 		
 		String[] strFullword = null;
 		List<String> sList = new ArrayList<String>();
-		String sNumber = "500";
+		String sNumber = "400";
 		String sTotal = "100";
 		
 		String sCombine = "";
@@ -137,25 +139,45 @@ public class FuzzyInstance {
 
 						sList.add(element);
 						
-						sCombine += element + " ";
 
 					}
 				}
 				
 				// 再加一個不要段字的
 				sList.remove(stoken);
-				sList.add(stoken);
+				//sList.add(stoken);
+				strSql += "(select pn, weight, fullword from qeindex where word like '"
+						+ stoken + "%' order by weight desc limit " + sNumber + ") ";
+				strSql += " union ";
 				
 				for (int i = 0; i < sList.size(); i++) {
-					strSql += "(select pn, weight, fullword from qeindex where word like '"
-							+ sList.get(i) + "%' order by weight desc limit " + sNumber + ") ";
-					strSql += " union ";
+					
+					// 為了效能，先排除數字跟單一個字的模糊搜尋
+					if(isNumeric(sList.get(i)) || sList.get(i).length() < 4)
+					{
+						strSql += "(select pn, weight, fullword from qeindex where word = '"
+								+ sList.get(i) + "' order by weight desc limit " + sNumber + ") ";
+						strSql += " union ";
+					}
+					else
+					{
+						strSql += "(select pn, weight, fullword from qeindex where word like '"
+								+ sList.get(i) + "%' order by weight desc limit " + sNumber + ") ";
+						strSql += " union ";
+					}
 
 				}
 
 				strSql = strSql.substring(0, strSql.length() - 7);
 				
+				long startSqlTime = System.currentTimeMillis();
+				
 				List<IndexRate> sIndexRate = GetAllIndexRate(strSql, conn);
+				
+				long stopSqlTime = System.currentTimeMillis();
+				elapsedSqlTime += stopSqlTime - startSqlTime;
+				
+				sCombine += strSql + ":" + elapsedSqlTime + ";";
 				
 				// 調整權證正確性
 				for(IndexRate iter:sIndexRate)
@@ -210,14 +232,19 @@ public class FuzzyInstance {
 		// sort 後傳回
 		sorted_map.putAll(PnWeightMap);
 		
-		// log query history
-		InsertQueryLog(strData, sorted_map.toString(), conn);		
+			
 		
 		List<String> sPnReturn = new ArrayList<String>();
 		
 		for(Map.Entry<String,Float> entry : sorted_map.entrySet()) {
 			sPnReturn.add(entry.getKey());
 		}
+		
+		long stopTime = System.currentTimeMillis();
+	    long elapsedTime = stopTime - startTime;
+	    
+	    // log query history
+	    InsertQueryLog(strData, "AllTime: " + elapsedTime + ", SqlTime : " + elapsedSqlTime + ", Sql : " + sCombine + "; " + sorted_map.toString(), conn);	
 
 		return sPnReturn;
 	}
@@ -245,6 +272,11 @@ public class FuzzyInstance {
 			attemptClose(conWriter);
 
 		}
+	}
+	
+	protected boolean isNumeric(String str)
+	{
+	  return str.matches("-?\\d+(\\.\\d+)?");  //match a number with optional '-' and decimal.
 	}
 
 	

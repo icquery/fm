@@ -70,7 +70,7 @@ public class fuzzysearch implements Serializable {
     private ComboPooledDataSource cpds;
 
 	public void fuzzysearch() {
-
+		//InsertQueryLog("fuzzysearch", "fuzzysearch()");
 	}
 
 	public String getReaderUrl() {
@@ -101,6 +101,9 @@ public class fuzzysearch implements Serializable {
 	}
 
 	public void connectPostgrel() {
+		
+		
+		
 		try
 
 		{
@@ -130,6 +133,8 @@ public class fuzzysearch implements Serializable {
 	        cpds.setAcquireIncrement(5);
 	        cpds.setMaxPoolSize(50);
 	        cpds.setMaxStatements(180);
+	        
+	        InsertQueryLog("fuzzysearch", "connectPostgrel()");
 
 		} catch (Exception ee)
 
@@ -141,6 +146,8 @@ public class fuzzysearch implements Serializable {
 	
 	public void closePostgrel()
 	{
+		InsertQueryLog("fuzzysearch", "connectPostgrel()");
+		
 		try {
 			
 			DataSources.destroy(cpds);
@@ -289,6 +296,8 @@ public class fuzzysearch implements Serializable {
 	}
 
 	protected void loadParams() {
+		
+		//InsertQueryLog("fuzzysearch", "loadParams()");
 
 		Context envurl, envusr, envpwd, envbase;
 		String entryurl = null, entryusr = null, entrypwd = null, entrybase = null;
