@@ -93,7 +93,7 @@ public class FuzzyInstance {
 		
 		String[] strFullword = null;
 		List<String> sList = new ArrayList<String>();
-		String sNumber = "400";
+		String sNumber = "500";
 		String sTotal = "100";
 		
 		String sCombine = "";
@@ -145,7 +145,7 @@ public class FuzzyInstance {
 				
 				// 再加一個不要段字的
 				sList.remove(stoken);
-				//sList.add(stoken);
+				sList.add(stoken);
 				strSql += "(select pn, weight, fullword from qeindex where word like '"
 						+ stoken + "%' order by weight desc limit " + sNumber + ") ";
 				strSql += " union ";
@@ -244,7 +244,8 @@ public class FuzzyInstance {
 	    long elapsedTime = stopTime - startTime;
 	    
 	    // log query history
-	    InsertQueryLog(strData, "AllTime: " + elapsedTime + ", SqlTime : " + elapsedSqlTime + ", Sql : " + sCombine + "; " + sorted_map.toString(), conn);	
+	    //InsertQueryLog(strData, "AllTime: " + elapsedTime + ", SqlTime : " + elapsedSqlTime + ", Sql : " + sCombine + "; " + sorted_map.toString(), conn);
+	    InsertQueryLog(strData, "AllTime: " + elapsedTime + ", SqlTime : " + elapsedSqlTime, conn);
 
 		return sPnReturn;
 	}

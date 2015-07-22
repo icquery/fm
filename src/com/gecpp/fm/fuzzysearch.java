@@ -131,7 +131,7 @@ public class fuzzysearch implements Serializable {
 	        // the settings below are optional -- c3p0 can work with defaults
 	        cpds.setMinPoolSize(10);
 	        cpds.setAcquireIncrement(5);
-	        cpds.setMaxPoolSize(50);
+	        cpds.setMaxPoolSize(70);
 	        cpds.setMaxStatements(180);
 	        
 	        InsertQueryLog("fuzzysearch", "connectPostgrel()");
