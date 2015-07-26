@@ -154,6 +154,39 @@ public class FuzzyInstance {
 		return sList;
 	}
 	
+	protected List<IndexShort> GetShort(Connection conn)
+	{
+		String strSql = "select word, alterword from qeindexshort";
+		
+		List<IndexShort> sList = new ArrayList<IndexShort>();
+
+		try {
+
+			Statement stmt = null;
+			ResultSet rs = null;
+
+			try {
+				stmt = conn.createStatement();
+				rs = stmt.executeQuery(strSql);
+				while (rs.next())
+					sList.add(new IndexShort(rs.getString(1), rs.getString(2)));
+				// System.out.println(rs.getString(0));
+			}
+
+			finally {
+
+				attemptClose(rs);
+				attemptClose(stmt);
+
+			}
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return sList;
+	}
+	
 	public List<String> GetQueryByEachWord(String strData, Connection conn, CRFClassifier<CoreLabel> segmenter)
 	{
 		long startTime = System.currentTimeMillis();
@@ -187,12 +220,29 @@ public class FuzzyInstance {
         TreeMap<String,Integer> int_map = new TreeMap<String,Integer>(ivc);
         
         
-      
         // 取得關鍵字調整
         List<IndexAdj> adjust = GetAdjust(conn);
+        // 取得縮寫字調整
+        List<IndexShort> breif = GetShort(conn);
 
         if (strFullword != null) {
-			for (String stoken : strFullword) {
+        	// 增加縮寫字如:TI => Texas Instruments
+        	ArrayList<String> keywords = new ArrayList<String>();
+        	
+        	for (String stoken : strFullword)
+        	{
+        		keywords.add(stoken);
+        		
+        		for(IndexShort element : breif)
+        		{
+        			if(element.getWord().equalsIgnoreCase(stoken))
+        				keywords.add(element.getAlterword());
+        		}
+        	}
+        	
+        	
+        	
+			for (String stoken : keywords) {
 
 				strSql = "";
 				
@@ -322,7 +372,7 @@ public class FuzzyInstance {
 					String key = entry.getKey();
 					Float value = entry.getValue();
 				    
-					if(value >= 1.0f)	// 到達一定權重再加
+					if(value >= 2.5f)	// 到達一定權重再加
 					{
 						if(PnKeywordMap.containsKey(key))
 			            {
@@ -341,26 +391,29 @@ public class FuzzyInstance {
 				
 			}
 		}
+        
+        int_map.putAll(PnKeywordMap);
+        
+        for(Map.Entry<String,Integer> entry : int_map.entrySet()) {
+			if(entry.getValue() > 1)
+			{
+				Float value = PnWeightMap.get(entry.getKey());
+				
+				PnWeightMap.put(entry.getKey(), value * entry.getValue());
+			}
+			
+			if(entry.getValue() < 2)
+				break;
+		}
 		
 		// sort 後傳回
 		sorted_map.putAll(PnWeightMap);
-		
-		int_map.putAll(PnKeywordMap);
-		
+
 		List<String> sPnReturn = new ArrayList<String>();
 		
 		int iCount = 0;
 		
-		for(Map.Entry<String,Integer> entry : int_map.entrySet()) {
-			if(entry.getValue() > 1)
-			{
-				sPnReturn.add(entry.getKey());
-				iCount++;
-				
-				if(iCount >= nTotal)
-					break;
-			}
-		}
+		
 		
 		for(Map.Entry<String,Float> entry : sorted_map.entrySet()) {
 			if(!sPnReturn.contains(entry.getKey()))
