@@ -55,7 +55,8 @@ public class ServiceImpl extends HessianServlet implements IFuzzySearch {
 	public List<String> QueryFuzzyRecord(String fuzzyString) {
 
 		FuzzyInstance fi = new FuzzyInstance();
-		List<String> list = fi.GetQuery(fuzzyString, fm.GetDbConnection(), fm.getSegmenter());
+		List<String> list = fi.GetQueryByEachWord(fuzzyString, fm.GetDbConnection(), fm.getSegmenter());
+		//List<String> list = fi.GetQuery(fuzzyString, fm.GetDbConnection(), fm.getSegmenter());
 		//list.add(fm.DebugGetQuery(fuzzyString));
 		return list;
 	}
