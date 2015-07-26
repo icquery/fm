@@ -217,7 +217,7 @@ public class fuzzysearch implements Serializable {
 				stmt = con.createStatement();
 				rs = stmt.executeQuery(strSql);
 				while (rs.next())
-					sList.add(new IndexRate(rs.getString(1), rs.getFloat(2), rs.getString(3)));
+					sList.add(new IndexRate(rs.getString(1), rs.getFloat(2), rs.getString(3), rs.getInt(4)));
 				// System.out.println(rs.getString(0));
 			}
 
@@ -377,10 +377,12 @@ public class fuzzysearch implements Serializable {
 		String sNumber = "1000";
 		String sTotal = "100";
 		
+		String delimiters = "[\\p{Punct}\\s]+";
+		
 		if (strData != null && !strData.isEmpty())
 		{
 			strData = strData.toUpperCase();
-			strFullword = strData.split("[\\ ,/_;|:\"\'>#?=&+]");
+			strFullword = strData.split(delimiters);
 		}
 		else
 			return "";
@@ -435,11 +437,13 @@ public class fuzzysearch implements Serializable {
 		String sTotal = "100";
 		
 		String sCombine = "";
+		
+		String delimiters = "[\\p{Punct}\\s]+";
 
 		if (strData != null && !strData.isEmpty())
 		{
 			strData = strData.toUpperCase();
-			strFullword = strData.split("[\\ ,/_;|:\"\'>#?=&+]");
+			strFullword = strData.split(delimiters);
 		}
 		else
 			return sList;
@@ -484,7 +488,7 @@ public class fuzzysearch implements Serializable {
 				sList.add(stoken);
 				
 				for (int i = 0; i < sList.size(); i++) {
-					strSql += "(select pn, weight, fullword from qeindex where word like '"
+					strSql += "(select pn, weight, fullword, kind from qeindex where word like '"
 							+ sList.get(i) + "%' order by weight desc limit " + sNumber + ") ";
 					strSql += " union ";
 
@@ -606,9 +610,11 @@ public class fuzzysearch implements Serializable {
         List<String> sFullword = new ArrayList<String>();
 
         Map<String, String> scoreMap = new HashMap<String, String>();
+        
+        String delimiters = "[\\p{Punct}\\s]+";
 
         if(strData != null && !strData.isEmpty())
-            strFullword = strData.split("[\\ ,/_;|:\"\'>#?=&+]");
+            strFullword = strData.split(delimiters);
 
         if(strFullword != null) {
             for (String stoken : strFullword) {

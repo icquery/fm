@@ -30,17 +30,28 @@ public class IndexRate {
 	public void setFullword(String fullword) {
 		this.fullword = fullword;
 	}
+	
+	public int getKind() {
+		return kind;
+	}
+
+
+	public void setKind(int kind) {
+		this.kind = kind;
+	}
 
 
 	private String pn;
     private float weight;
     private String fullword;
+    private int kind;
     
 
-    public IndexRate(String _pn, float _weight, String _fullword) {
+    public IndexRate(String _pn, float _weight, String _fullword, int _kind) {
     	this.pn = _pn;
     	this.weight = _weight;
     	this.fullword = _fullword;
+    	this.kind = _kind;
     }
 
   

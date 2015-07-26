@@ -85,6 +85,39 @@ public class FuzzyInstance {
 		
 	}
 	
+	protected List<IndexAdj> GetAdjust(Connection conn)
+	{
+		String strSql = "select word, alterword, kind, adjust from qeindexadj";
+		
+		List<IndexAdj> sList = new ArrayList<IndexAdj>();
+
+		try {
+
+			Statement stmt = null;
+			ResultSet rs = null;
+
+			try {
+				stmt = conn.createStatement();
+				rs = stmt.executeQuery(strSql);
+				while (rs.next())
+					sList.add(new IndexAdj(rs.getString(1), rs.getString(2), rs.getInt(3), rs.getFloat(4)));
+				// System.out.println(rs.getString(0));
+			}
+
+			finally {
+
+				attemptClose(rs);
+				attemptClose(stmt);
+
+			}
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return sList;
+	}
+	
 	public List<String> GetQuery(String strData, Connection conn, CRFClassifier<CoreLabel> segmenter) {
 		
 		long startTime = System.currentTimeMillis();
@@ -93,15 +126,17 @@ public class FuzzyInstance {
 		
 		String[] strFullword = null;
 		List<String> sList = new ArrayList<String>();
-		String sNumber = "500";
-		String sTotal = "100";
+		String sNumber = "20000";
+		int nTotal = 20;
 		
 		String sCombine = "";
+		
+		String delimiters = "[\\p{Punct}\\s]+";
 
 		if (strData != null && !strData.isEmpty())
 		{
 			strData = strData.toUpperCase();
-			strFullword = strData.split("[\\ ,/_;|:\"\'>#?=&+]");
+			strFullword = strData.split(delimiters);
 		}
 		else
 			return sList;
@@ -111,6 +146,9 @@ public class FuzzyInstance {
 		HashMap<String,Float> PnWeightMap = new HashMap<String,Float>();
 		ValueComparator bvc =  new ValueComparator(PnWeightMap);
         TreeMap<String,Float> sorted_map = new TreeMap<String,Float>(bvc);
+        
+        // 取得關鍵字調整
+        List<IndexAdj> adjust = GetAdjust(conn);
 
 		if (strFullword != null) {
 			for (String stoken : strFullword) {
@@ -143,30 +181,55 @@ public class FuzzyInstance {
 					}
 				}
 				
+				// 目前先都不要用like
 				// 再加一個不要段字的
 				sList.remove(stoken);
-				sList.add(stoken);
-				strSql += "(select pn, weight, fullword from qeindex where word like '"
+				//sList.add(stoken);
+				strSql += "(select pn, weight, fullword, kind from qeindex where word = '"
+						+ stoken + "' and weight >= 0.5 order by weight desc limit " + sNumber + ") ";
+				strSql += " union ";
+				
+				for (int i = 0; i < sList.size(); i++) {
+					
+					if(!stoken.equals((sList).get(i)))
+					{
+						
+						strSql += "(select pn, weight, fullword, kind from qeindex where word = '"
+								+ sList.get(i) + "' and weight >= 0.5 order by weight desc limit " + sNumber + ") ";
+						strSql += " union ";
+						
+					}
+				}
+				
+				/*
+				// 再加一個不要段字的
+				sList.remove(stoken);
+				//sList.add(stoken);
+				strSql += "(select pn, weight, fullword, kind from qeindex where word like '"
 						+ stoken + "%' order by weight desc limit " + sNumber + ") ";
 				strSql += " union ";
 				
 				for (int i = 0; i < sList.size(); i++) {
 					
-					// 為了效能，先排除數字跟單一個字的模糊搜尋 
-					if(isNumeric(sList.get(i)) || sList.get(i).length() < 4)
+					if(!stoken.equals((sList).get(i)))
 					{
-						strSql += "(select pn, weight, fullword from qeindex where word = '"
-								+ sList.get(i) + "' order by weight desc limit " + sNumber + ") ";
-						strSql += " union ";
+						// 為了效能，先排除數字跟短字的模糊搜尋 
+						if(isNumeric(sList.get(i)) || sList.get(i).length() < 4)
+						{
+							strSql += "(select pn, weight, fullword, kind from qeindex where word = '"
+									+ sList.get(i) + "' order by weight desc limit " + sNumber + ") ";
+							strSql += " union ";
+						}
+						else
+						{
+							strSql += "(select pn, weight, fullword, kind from qeindex where word like '"
+									+ sList.get(i) + "%' order by weight desc limit " + sNumber + ") ";
+							strSql += " union ";
+						}
 					}
-					else
-					{
-						strSql += "(select pn, weight, fullword from qeindex where word like '"
-								+ sList.get(i) + "%' order by weight desc limit " + sNumber + ") ";
-						strSql += " union ";
-					}
-
 				}
+				
+				*/
 
 				strSql = strSql.substring(0, strSql.length() - 7);
 				
@@ -186,11 +249,14 @@ public class FuzzyInstance {
 					String shtWord = "";
 					float addWeight = 0f;
 					
+					// 查詢字與關鍵字比對長度後對換
+					// 方便string compare時找頻率
 					if(iter.getFullword().length() >= sKeyword.length())
 					{
 						lngWord = iter.getFullword();
 						shtWord = sKeyword;
 						
+						// 部分相同
 						addWeight = 2.5f;
 					}
 					else
@@ -198,6 +264,7 @@ public class FuzzyInstance {
 						lngWord = sKeyword;
 						shtWord = iter.getFullword();
 						
+						// 查詢字大於關鍵字
 						addWeight = 0.75f;
 					}
 					
@@ -211,6 +278,17 @@ public class FuzzyInstance {
 					}
 					else
 						iter.setWeight(0.01f);
+					
+					// 調整關鍵字(依照類別)
+					for(IndexAdj adj:adjust)
+					{
+						if(adj.getWord().equalsIgnoreCase(iter.getFullword()) && adj.getKind()==iter.getKind())
+							iter.setWeight(iter.getWeight() + adj.getAdjust());
+
+						if(adj.getWord().equalsIgnoreCase(iter.getFullword()) && adj.getKind()!=iter.getKind())
+							iter.setWeight(iter.getWeight() - 2);
+					
+					}
 					
 					if(PnWeightMap.containsKey(iter.getPn()))
 		            {
@@ -236,8 +314,14 @@ public class FuzzyInstance {
 		
 		List<String> sPnReturn = new ArrayList<String>();
 		
+		int iCount = 0;
+		
 		for(Map.Entry<String,Float> entry : sorted_map.entrySet()) {
 			sPnReturn.add(entry.getKey());
+			iCount++;
+			
+			if(iCount >= nTotal)
+				break;
 		}
 		
 		long stopTime = System.currentTimeMillis();
@@ -245,7 +329,8 @@ public class FuzzyInstance {
 	    
 	    // log query history
 	    //InsertQueryLog(strData, "AllTime: " + elapsedTime + ", SqlTime : " + elapsedSqlTime + ", Sql : " + sCombine + "; " + sorted_map.toString(), conn);
-	    InsertQueryLog(strData, "AllTime: " + elapsedTime + ", SqlTime : " + elapsedSqlTime, conn);
+	    //InsertQueryLog(strData, "AllTime: " + elapsedTime + ", SqlTime : " + elapsedSqlTime + ", Sql : " + sCombine, conn);
+	    InsertQueryLog(strData, "AllTime: " + elapsedTime + ", SqlTime : " + elapsedSqlTime + ", Sql : " + sCombine + "; " + sPnReturn.toString(), conn);
 
 		return sPnReturn;
 	}
@@ -362,7 +447,7 @@ public class FuzzyInstance {
 				stmt = con.createStatement();
 				rs = stmt.executeQuery(strSql);
 				while (rs.next())
-					sList.add(new IndexRate(rs.getString(1), rs.getFloat(2), rs.getString(3)));
+					sList.add(new IndexRate(rs.getString(1), rs.getFloat(2), rs.getString(3), rs.getInt(4)));
 				// System.out.println(rs.getString(0));
 			}
 
@@ -398,9 +483,11 @@ public class FuzzyInstance {
         List<String> sFullword = new ArrayList<String>();
 
         Map<String, String> scoreMap = new HashMap<String, String>();
+        
+        String delimiters = "[\\p{Punct}\\s]+";
 
         if(strData != null && !strData.isEmpty())
-            strFullword = strData.split("[\\ ,/_;|:\"\'>#?=&+]");
+            strFullword = strData.split(delimiters);
 
         if(strFullword != null) {
             for (String stoken : strFullword) {
