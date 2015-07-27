@@ -195,6 +195,9 @@ public class FuzzyInstance {
 		
 		String[] strFullword = null;
 		List<String> sList = new ArrayList<String>();
+		
+		List<String> sFullCompare = new ArrayList<String>();
+		
 		String sNumber = "20000";
 		int nTotal = 20;
 		
@@ -272,14 +275,14 @@ public class FuzzyInstance {
 					}
 				}
 				
-				// 目前先都不要用like
 				// 再加一個不要段字的
 				sList.remove(stoken);
 				//sList.add(stoken);
-				strSql += "(select pn, weight, fullword, kind from qeindex where word = '"
-						+ stoken + "' and weight >= 0.5 order by weight desc limit " + sNumber + ") ";
+				strSql += "(select pn, weight, fullword, kind from qeindex where word like '"
+						+ stoken + "%' and weight >= 0.5 limit " + sNumber + ") ";
 				strSql += " union ";
 				
+				// 目前先都不要用like
 				for (int i = 0; i < sList.size(); i++) {
 					
 					if(!stoken.equals((sList).get(i)))
@@ -320,7 +323,7 @@ public class FuzzyInstance {
 						shtWord = sKeyword;
 						
 						// 部分相同
-						addWeight = 2.5f;
+						addWeight = 0.5f;
 					}
 					else
 					{
@@ -328,14 +331,19 @@ public class FuzzyInstance {
 						shtWord = iter.getFullword();
 						
 						// 查詢字大於關鍵字
-						addWeight = 0.75f;
+						addWeight = 0.15f;
 					}
 					
 					if(CountStringOccurrences(lngWord, shtWord) >= 1)
 					{
 						// 完全符合時提高
 						if(lngWord.length() == shtWord.length())
+						{
 							iter.setWeight(iter.getWeight() + 5);
+							
+							sFullCompare.add(shtWord);
+
+						}
 						else
 							iter.setWeight(iter.getWeight() + addWeight);
 					}
@@ -349,7 +357,7 @@ public class FuzzyInstance {
 							iter.setWeight(iter.getWeight() + adj.getAdjust());
 
 						if(adj.getWord().equalsIgnoreCase(iter.getFullword()) && adj.getKind()!=iter.getKind())
-							iter.setWeight(iter.getWeight() - 2);
+							iter.setWeight(iter.getWeight() - adj.getAdjust());
 					
 					}
 					
@@ -357,12 +365,13 @@ public class FuzzyInstance {
 		            {
 						Float fWeight = PnWeightMap.get(iter.getPn());
 						
-						PnWeightMap.put(iter.getPn(), fWeight+iter.getWeight());
+						// 改成自然對數，減少數字太大的影響力
+						PnWeightMap.put(iter.getPn(), (float)Math.log(fWeight+iter.getWeight()));
 
 		            }
 		            else {
-
-		            	PnWeightMap.put(iter.getPn(), iter.getWeight());
+		            	// 改成自然對數，減少數字太大的影響力
+		            	PnWeightMap.put(iter.getPn(), (float)Math.log(iter.getWeight()));
 		            }
 				}
 				
@@ -371,22 +380,36 @@ public class FuzzyInstance {
 					
 					String key = entry.getKey();
 					Float value = entry.getValue();
+					
+					int weight = 0;
+					
+					if(CountStringOccurrences(stoken, key) >= 1)
+					{
+						// 完全符合時提高
+						if(stoken.length() == stoken.length())
+							weight = 2;
+						else
+							weight = 1;
+					}
+					else
+						weight = 0;
 				    
-					if(value >= 2.5f)	// 到達一定權重再加
+					if(weight > 0)	// 到達一定權重再加
 					{
 						if(PnKeywordMap.containsKey(key))
 			            {
 							Integer iCount = PnKeywordMap.get(key);
 							
-							PnKeywordMap.put(key, iCount+1);
+							PnKeywordMap.put(key, iCount+weight);
 	
 			            }
 						
 			            else {
 	
-			            	PnKeywordMap.put(key, 1);
+			            	PnKeywordMap.put(key, weight);
 			            }
 					}
+					
 				}
 				
 			}
@@ -394,6 +417,7 @@ public class FuzzyInstance {
         
         int_map.putAll(PnKeywordMap);
         
+        // 處理一項查詢中，有兩個以上關鍵字符合者
         for(Map.Entry<String,Integer> entry : int_map.entrySet()) {
 			if(entry.getValue() > 1)
 			{
@@ -401,9 +425,7 @@ public class FuzzyInstance {
 				
 				PnWeightMap.put(entry.getKey(), value * entry.getValue());
 			}
-			
-			if(entry.getValue() < 2)
-				break;
+
 		}
 		
 		// sort 後傳回
@@ -432,7 +454,7 @@ public class FuzzyInstance {
 	    // log query history
 	    //InsertQueryLog(strData, "AllTime: " + elapsedTime + ", SqlTime : " + elapsedSqlTime + ", Sql : " + sCombine + "; " + sorted_map.toString(), conn);
 	    //InsertQueryLog(strData, "AllTime: " + elapsedTime + ", SqlTime : " + elapsedSqlTime + ", Sql : " + sCombine, conn);
-	    InsertQueryLog(strData, "AllTime: " + elapsedTime + ", SqlTime : " + elapsedSqlTime + ", Sql : " + sCombine + "; " + sPnReturn.toString(), conn);
+	    InsertQueryLog(strData, "AllTime: " + elapsedTime + ", SqlTime : " + elapsedSqlTime + ", Sql : " + sCombine + "; " + sFullCompare.toString(), conn);
 
 		return sPnReturn;
 		
