@@ -45,13 +45,37 @@ public class IndexRate {
     private float weight;
     private String fullword;
     private int kind;
+    private int page;
+    private int order;
     
 
-    public IndexRate(String _pn, float _weight, String _fullword, int _kind) {
+    public int getOrder() {
+		return order;
+	}
+
+
+	public void setOrder(int order) {
+		this.order = order;
+	}
+
+
+	public int getPage() {
+		return page;
+	}
+
+
+	public void setPage(int page) {
+		this.page = page;
+	}
+
+
+	public IndexRate(String _pn, float _weight, String _fullword, int _kind, int _page, int _order) {
     	this.pn = _pn;
     	this.weight = _weight;
     	this.fullword = _fullword;
     	this.kind = _kind;
+    	this.page = _page;
+    	this.order = _order;
     }
 
   

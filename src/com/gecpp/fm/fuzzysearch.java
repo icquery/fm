@@ -201,7 +201,7 @@ public class fuzzysearch implements Serializable {
 				stmt = con.createStatement();
 				rs = stmt.executeQuery(strSql);
 				while (rs.next())
-					sList.add(new IndexRate(rs.getString(1), rs.getFloat(2), rs.getString(3), rs.getInt(4)));
+					sList.add(new IndexRate(rs.getString(1), rs.getFloat(2), rs.getString(3), rs.getInt(4), rs.getInt(5), rs.getInt(6)));
 				// System.out.println(rs.getString(0));
 			}
 

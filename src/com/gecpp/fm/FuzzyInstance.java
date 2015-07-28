@@ -52,6 +52,23 @@ class IntComparator implements Comparator<String> {
     }
 }
 
+class OrdComparator implements Comparator<Integer> {
+
+    Map<Integer, Integer> base;
+    public OrdComparator(Map<Integer, Integer> base) {
+        this.base = base;
+    }
+
+    // Note: this comparator imposes orderings that are inconsistent with equals.    
+    public int compare(Integer a, Integer b) {
+        if (base.get(a) >= base.get(b)) {
+            return -1;
+        } else {
+            return 1;
+        } // returning 0 would merge keys
+    }
+}
+
 
 public class FuzzyInstance {
 	
@@ -196,7 +213,7 @@ public class FuzzyInstance {
 		String[] strFullword = null;
 		List<String> sList = new ArrayList<String>();
 		
-		List<String> sFullCompare = new ArrayList<String>();
+		List<IndexRate> sFullCompare = new ArrayList<IndexRate>();
 		
 		String sNumber = "20000";
 		int nTotal = 20;
@@ -222,6 +239,13 @@ public class FuzzyInstance {
         IntComparator ivc =  new IntComparator(PnKeywordMap);
         TreeMap<String,Integer> int_map = new TreeMap<String,Integer>(ivc);
         
+        // 找各關鍵字對應的料號，如果重複，要排在前面
+        HashMap<Integer, Integer> PnOrderMap = new HashMap<Integer, Integer>();
+        OrdComparator ovc =  new OrdComparator(PnOrderMap);
+        TreeMap<Integer,Integer> ord_map = new TreeMap<Integer,Integer>(ovc);
+        
+        HashMap<Integer, String> hashPn = new HashMap<Integer, String>();
+        
         
         // 取得關鍵字調整
         List<IndexAdj> adjust = GetAdjust(conn);
@@ -239,13 +263,29 @@ public class FuzzyInstance {
         		for(IndexShort element : breif)
         		{
         			if(element.getWord().equalsIgnoreCase(stoken))
+        			{
         				keywords.add(element.getAlterword());
+        				keywords.remove(stoken);	// 置換字要不要移除，之後再討論
+        			}
         		}
         	}
+        	
+        	// 20150729 for 精密搜尋
+        	int order = 0;
+        	int orderCount = 0;
+        	
+        	ArrayList<Integer> aryPreOrder = new ArrayList<Integer>();
+        	
+        	ArrayList<Integer> aryOrderCount = new ArrayList<Integer>();
         	
         	
         	
 			for (String stoken : keywords) {
+				
+				// 記錄第幾個查詢字
+				order++;
+				orderCount = 0;
+				aryPreOrder.clear();
 
 				strSql = "";
 				
@@ -278,7 +318,7 @@ public class FuzzyInstance {
 				// 再加一個不要段字的
 				sList.remove(stoken);
 				//sList.add(stoken);
-				strSql += "(select pn, weight, fullword, kind from qeindex where word like '"
+				strSql += "(select pn, weight, fullword, kind, page, " + order + " from qeindex where word like '"
 						+ stoken + "%' and weight >= 0.5 limit " + sNumber + ") ";
 				strSql += " union ";
 				
@@ -288,7 +328,7 @@ public class FuzzyInstance {
 					if(!stoken.equals((sList).get(i)))
 					{
 						
-						strSql += "(select pn, weight, fullword, kind from qeindex where word = '"
+						strSql += "(select pn, weight, fullword, kind, page, " + order + " from qeindex where word = '"
 								+ sList.get(i) + "' and weight >= 0.5 order by weight desc limit " + sNumber + ") ";
 						strSql += " union ";
 						
@@ -339,9 +379,15 @@ public class FuzzyInstance {
 						// 完全符合時提高
 						if(lngWord.length() == shtWord.length())
 						{
-							iter.setWeight(iter.getWeight() + 5);
+							// 找完全符合的(但不要重複)
+							if(!aryPreOrder.contains(iter.getPage()))
+							{
+								iter.setWeight(iter.getWeight() + 5);
 							
-							sFullCompare.add(shtWord);
+								aryPreOrder.add(iter.getPage());
+								sFullCompare.add(iter);
+								orderCount++;
+							}
 
 						}
 						else
@@ -412,8 +458,33 @@ public class FuzzyInstance {
 					
 				}
 				
+				// 把這個關鍵字完全符合的數量記錄起來
+				aryOrderCount.add(orderCount);
+				
 			}
 		}
+        
+        int nOrderNumber = 0;
+        // 先處理完全符合的
+        for(IndexRate order:sFullCompare)
+		{
+        	if(PnOrderMap.containsKey(order.getPage()))
+        	{
+        		int count = PnOrderMap.get(order.getPage());
+				PnOrderMap.put(order.getPage(), count + 1);
+				
+				nOrderNumber++;
+        	}
+            else
+            {
+            	hashPn.put(order.getPage(), order.getPn());
+            	PnOrderMap.put(order.getPage(), 1);
+            }
+		}
+        
+        ord_map.putAll(PnOrderMap);
+        
+        
         
         int_map.putAll(PnKeywordMap);
         
@@ -435,16 +506,36 @@ public class FuzzyInstance {
 		
 		int iCount = 0;
 		
+		if(nOrderNumber >= 1)
+		{
+			for(Map.Entry<Integer,Integer> entry : ord_map.entrySet()) {
+				if(!sPnReturn.contains(hashPn.get(entry.getKey())))
+				{
+					if(iCount > nTotal)
+						break;
+					
+					if(entry.getValue()==1)
+						break;
+					
+					sPnReturn.add(hashPn.get(entry.getKey()));
+					iCount++;
+					
+					
+				}
+			}
+		}
 		
 		
 		for(Map.Entry<String,Float> entry : sorted_map.entrySet()) {
 			if(!sPnReturn.contains(entry.getKey()))
 			{
+				if(iCount > nTotal)
+					break;
+				
 				sPnReturn.add(entry.getKey());
 				iCount++;
 				
-				if(iCount >= nTotal)
-					break;
+				
 			}
 		}
 		
@@ -454,7 +545,7 @@ public class FuzzyInstance {
 	    // log query history
 	    //InsertQueryLog(strData, "AllTime: " + elapsedTime + ", SqlTime : " + elapsedSqlTime + ", Sql : " + sCombine + "; " + sorted_map.toString(), conn);
 	    //InsertQueryLog(strData, "AllTime: " + elapsedTime + ", SqlTime : " + elapsedSqlTime + ", Sql : " + sCombine, conn);
-	    InsertQueryLog(strData, "AllTime: " + elapsedTime + ", SqlTime : " + elapsedSqlTime + ", Sql : " + sCombine + "; " + sFullCompare.toString(), conn);
+	    InsertQueryLog(strData, "AllTime: " + elapsedTime + ", SqlTime : " + elapsedSqlTime + ", Sql : " + sCombine + "; " + sPnReturn.toString(), conn);
 
 		return sPnReturn;
 		
@@ -790,7 +881,7 @@ public class FuzzyInstance {
 				stmt = con.createStatement();
 				rs = stmt.executeQuery(strSql);
 				while (rs.next())
-					sList.add(new IndexRate(rs.getString(1), rs.getFloat(2), rs.getString(3), rs.getInt(4)));
+					sList.add(new IndexRate(rs.getString(1), rs.getFloat(2), rs.getString(3), rs.getInt(4), rs.getInt(5), rs.getInt(6)));
 				// System.out.println(rs.getString(0));
 			}
 
