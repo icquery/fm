@@ -251,6 +251,16 @@ public class FuzzyInstance {
         List<IndexAdj> adjust = GetAdjust(conn);
         // 取得縮寫字調整
         List<IndexShort> breif = GetShort(conn);
+        
+     // 20150729 for 精密搜尋
+    	int order = 0;
+    	int orderCount = 0;
+    	
+    	ArrayList<Integer> aryPreOrder = new ArrayList<Integer>();
+    	
+    	ArrayList<Integer> aryOrderCount = new ArrayList<Integer>();
+    	
+    	
 
         if (strFullword != null) {
         	// 增加縮寫字如:TI => Texas Instruments
@@ -269,15 +279,6 @@ public class FuzzyInstance {
         			}
         		}
         	}
-        	
-        	// 20150729 for 精密搜尋
-        	int order = 0;
-        	int orderCount = 0;
-        	
-        	ArrayList<Integer> aryPreOrder = new ArrayList<Integer>();
-        	
-        	ArrayList<Integer> aryOrderCount = new ArrayList<Integer>();
-        	
         	
         	
 			for (String stoken : keywords) {
@@ -466,25 +467,23 @@ public class FuzzyInstance {
         
         int nOrderNumber = 0;
         // 先處理完全符合的
-        for(IndexRate order:sFullCompare)
+        for(IndexRate order1:sFullCompare)
 		{
-        	if(PnOrderMap.containsKey(order.getPage()))
+        	if(PnOrderMap.containsKey(order1.getPage()))
         	{
-        		int count = PnOrderMap.get(order.getPage());
-				PnOrderMap.put(order.getPage(), count + 1);
+        		int count = PnOrderMap.get(order1.getPage());
+				PnOrderMap.put(order1.getPage(), count + 1);
 				
 				nOrderNumber++;
         	}
             else
             {
-            	hashPn.put(order.getPage(), order.getPn());
-            	PnOrderMap.put(order.getPage(), 1);
+            	hashPn.put(order1.getPage(), order1.getPn());
+            	PnOrderMap.put(order1.getPage(), 1);
             }
 		}
         
         ord_map.putAll(PnOrderMap);
-        
-        
         
         int_map.putAll(PnKeywordMap);
         
@@ -521,6 +520,59 @@ public class FuzzyInstance {
 					iCount++;
 					
 					
+				}
+			}
+		}
+		
+		
+		// 模糊搜尋讓出來
+		if(nOrderNumber == 0)
+		{
+			// 各取幾個?
+			int iTake = 0;
+			
+			int iKeyword = 0;
+			int keyword_take = 0;
+			
+			
+			if(aryOrderCount.size() > 0)
+			{
+				iTake = (nTotal - 2) / aryOrderCount.size();
+
+				for(IndexRate order1:sFullCompare)
+				{
+					if(iCount > nTotal)
+						break;
+					
+					if(keyword_take > iTake)
+					{
+						keyword_take = 0;
+						iKeyword++;
+						
+						continue;
+					}
+					
+					if(order1.getOrder() > iKeyword)
+					{
+						keyword_take = 0;
+						iKeyword++;
+						
+						continue;
+					}
+						
+					
+					if(!sPnReturn.contains(hashPn.get(order1.getPage())))
+		        	{
+		        		if(order1.getOrder() == iKeyword)
+		        		{
+		        			sPnReturn.add(hashPn.get(order1.getPage()));
+		        			
+		        			keyword_take++;
+		        			iCount++;
+		        		}
+		        		
+		        	}
+		         
 				}
 			}
 		}
