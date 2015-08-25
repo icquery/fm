@@ -304,6 +304,8 @@ public class FuzzyInstance {
 				//List<String> segmented = new ArrayList<String>();
 				//segmented.add(stoken);
 	
+				// 2015/08/19 云云認為模糊搜尋搜出無關緊要的
+				/*
 				if (segmented != null) {
 					for (String element : segmented) {
 
@@ -315,6 +317,24 @@ public class FuzzyInstance {
 
 					}
 				}
+				*/
+				
+				String strInverseArray[] = stoken.split("(?<=\\D)(?=\\d)|(?<=\\d)(?=\\D)");
+				String strInverseString = "";
+				
+				// 去除尾部
+				if(strInverseArray.length > 1)
+				{
+					for(int i=0; i<strInverseArray.length - 1; i++)
+					{
+						strInverseString += strInverseArray[i].toString();
+					}
+				}
+				
+				
+				sList.add(strInverseString);
+				
+				// 2015/08/19 云云認為模糊搜尋搜出無關緊要的 end
 				
 				// 再加一個不要段字的
 				sList.remove(stoken);
@@ -329,8 +349,8 @@ public class FuzzyInstance {
 					if(!stoken.equals((sList).get(i)))
 					{
 						
-						strSql += "(select pn, weight, fullword, kind, page, " + order + " from qeindex where word = '"
-								+ sList.get(i) + "' and weight >= 0.5 order by weight desc limit " + sNumber + ") ";
+						strSql += "(select pn, weight, fullword, kind, page, " + order + " from qeindex where word like '"
+								+ sList.get(i) + "%' and weight >= 0.5 order by weight desc limit " + sNumber + ") ";
 						strSql += " union ";
 						
 					}
