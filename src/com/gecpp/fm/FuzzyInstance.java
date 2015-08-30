@@ -81,7 +81,7 @@ public class FuzzyInstance {
 		execUpdate(strSql, conn);
 		
 		attemptClose(conn);
-		return 0;
+		return 1;
 	}
 	
 	public int InsertFuzzyRecord(int pid, String pn, String mfs,
@@ -96,7 +96,7 @@ public class FuzzyInstance {
 		
 		attemptClose(conn);
 		
-		return 0;
+		return 1;
 	}
 	
 	protected void ProcessData(String pid, String pn, String mfs,
@@ -304,6 +304,8 @@ public class FuzzyInstance {
 				//List<String> segmented = new ArrayList<String>();
 				//segmented.add(stoken);
 	
+				// 2015/08/19 云云認為模糊搜尋搜出無關緊要的
+				/*
 				if (segmented != null) {
 					for (String element : segmented) {
 
@@ -315,6 +317,24 @@ public class FuzzyInstance {
 
 					}
 				}
+				*/
+				
+				String strInverseArray[] = stoken.split("(?<=\\D)(?=\\d)|(?<=\\d)(?=\\D)");
+				String strInverseString = "";
+				
+				// 去除尾部
+				if(strInverseArray.length > 1)
+				{
+					for(int i=0; i<strInverseArray.length - 1; i++)
+					{
+						strInverseString += strInverseArray[i].toString();
+					}
+				}
+				
+				
+				sList.add(strInverseString);
+				
+				// 2015/08/19 云云認為模糊搜尋搜出無關緊要的 end
 				
 				// 再加一個不要段字的
 				sList.remove(stoken);
@@ -329,8 +349,8 @@ public class FuzzyInstance {
 					if(!stoken.equals((sList).get(i)))
 					{
 						
-						strSql += "(select pn, weight, fullword, kind, page, " + order + " from qeindex where word = '"
-								+ sList.get(i) + "' and weight >= 0.5 order by weight desc limit " + sNumber + ") ";
+						strSql += "(select pn, weight, fullword, kind, page, " + order + " from qeindex where word like '"
+								+ sList.get(i) + "%' and weight >= 0.5 order by weight desc limit " + sNumber + ") ";
 						strSql += " union ";
 						
 					}
@@ -1097,5 +1117,73 @@ public class FuzzyInstance {
 
 			it.remove(); // avoids a ConcurrentModificationException
 		}
+	}
+
+	public int GetMaxIndexID(Connection con) {
+		// TODO Auto-generated method stub
+		
+		String strSql = "select page from qeindex order by page desc limit 1";
+		
+		int pid = 0;
+		
+		try {
+
+			Statement stmt = null;
+			ResultSet rs = null;
+
+			try {
+				stmt = con.createStatement();
+				rs = stmt.executeQuery(strSql);
+				while (rs.next())
+					pid = Integer.parseInt(rs.getString(1));
+				// System.out.println(rs.getString(0));
+			}
+
+			finally {
+
+				attemptClose(rs);
+				attemptClose(stmt);
+
+			}
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return pid;
+	}
+
+	public int GetIndexIDStatus(int pid, Connection con) {
+		// TODO Auto-generated method stub
+		
+		String strSql = "select * from qeindex where page = " + pid;
+	
+		int Status = 0;
+		
+		try {
+
+			Statement stmt = null;
+			ResultSet rs = null;
+
+			try {
+				stmt = con.createStatement();
+				rs = stmt.executeQuery(strSql);
+				while (rs.next())
+					Status = 1;
+				// System.out.println(rs.getString(0));
+			}
+
+			finally {
+
+				attemptClose(rs);
+				attemptClose(stmt);
+
+			}
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return Status;
 	}
 }

@@ -62,11 +62,36 @@ public class ServiceImpl extends HessianServlet implements IFuzzySearch {
 	}
 	
 	@Override
+	public OrderResult QueryFuzzyRecordByListPage(String fuzzyString,
+			int currentPage, int pageSize) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public int GetMaxIndexID() {
+		// TODO Auto-generated method stub
+		FuzzyInstance fi = new FuzzyInstance();
+		
+		return fi.GetMaxIndexID(fm.GetDbConnection());
+	}
+
+	@Override
+	public int GetIndexIDStatus(int pid) {
+		// TODO Auto-generated method stub
+		FuzzyInstance fi = new FuzzyInstance();
+		
+		return fi.GetIndexIDStatus(pid, fm.GetDbConnection());
+	}
+	
+	@Override
 	public void destroy()
 	{
 		fm.closePostgrel();
 		super.destroy();
 	}
+
+	
 
 }
 
