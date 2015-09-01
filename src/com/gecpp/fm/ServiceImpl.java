@@ -65,7 +65,11 @@ public class ServiceImpl extends HessianServlet implements IFuzzySearch {
 	public OrderResult QueryFuzzyRecordByListPage(String fuzzyString,
 			int currentPage, int pageSize) {
 		// TODO Auto-generated method stub
-		return null;
+		FuzzyInstance fi = new FuzzyInstance();
+		
+		OrderResult result = fi.QueryFuzzyRecordByListPage(fuzzyString, currentPage, pageSize, fm.GetDbConnection());
+		
+		return result;
 	}
 
 	@Override
