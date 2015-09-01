@@ -35,12 +35,30 @@ public class Product {
 	public void setInventory(int inventory) {
 		this.inventory = inventory;
 	}
+
+	public String getSupplierpn() {
+		return supplierpn;
+	}
+
+	public void setSupplierpn(String supplierpn) {
+		this.supplierpn = supplierpn;
+	}
+
+	public String getPrice() {
+		return price;
+	}
+
+	public void setPrice(String price) {
+		this.price = price;
+	}
 	
-	public Product(String _pn, int _id, String _mfs, int _inventory) {
+	public Product(int _inventory, String _price, int _id, String _pn, String _supplierpn, String _mfs) {
     	this.pn = _pn;
     	this.id = _id;
     	this.mfs = _mfs;
     	this.inventory = _inventory;
+		this.price = _price;
+		this.supplierpn = _supplierpn;
     	
     }
 
@@ -52,7 +70,7 @@ public class Product {
 	
 	private int inventory;
 
-	
-	
+	private String price;
 
+	private String supplierpn;
 }

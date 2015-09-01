@@ -5,14 +5,14 @@ import java.util.List;
 public interface IFuzzySearch {
 	
 	/**
-	 * DeleteFuzzyRecord¡A§R°£¸ÓID¤§¯Á¤Ş
+	 * DeleteFuzzyRecordï¼Œåˆªé™¤è©²IDä¹‹ç´¢å¼•
 	 * @param pid
 	 * @return 1 success, 0 fail
 	 */
 	public int DeleteFuzzyRecord(int pid);
 	
 	/**
-	 * InsertFuzzyRecord¡A·s¼W©Î§ó·s¶Ç¤JID¤§¯Á¤Ş
+	 * InsertFuzzyRecordï¼Œæ–°å¢æˆ–æ›´æ–°å‚³å…¥IDä¹‹ç´¢å¼•
 	 * @param pid
 	 * @param pn
 	 * @param mfs
@@ -20,7 +20,7 @@ public interface IFuzzySearch {
 	 * @param description
 	 * @param param
 	 * @return 1 success, 0 fail
-	 * ¦pªGFuzzyDB¤¤¤w¦³¸Óµ§pid¸ê®Æ¡A«h·|§ó·s
+	 * å¦‚æœFuzzyDBä¸­å·²æœ‰è©²ç­†pidè³‡æ–™ï¼Œå‰‡æœƒæ›´æ–°
 	 */
 	public int InsertFuzzyRecord(
 			int pid,
@@ -32,7 +32,7 @@ public interface IFuzzySearch {
 );
 	
 	/**
-	 * ÂÂªºzzySearch¬d¸ß¬d¸ß
+	 * èˆŠçš„zzySearchæŸ¥è©¢æŸ¥è©¢
 	 * @param fuzzyString
 	 * @return
 	 */
@@ -40,20 +40,20 @@ public interface IFuzzySearch {
 	
 	
 	/**
-	 * QueryFuzzyRecordByListPage¡A¬O¨Ì·Óom±Æ§Ç¹L¡A¥B¥i¥H¦^¶Ç¤À­¶¹L«áªº®Æ¸¹¸ê°T
+	 * QueryFuzzyRecordByListPageï¼Œæ˜¯ä¾ç…§omæ’åºéï¼Œä¸”å¯ä»¥å›å‚³åˆ†é éå¾Œçš„æ–™è™Ÿè³‡è¨Š
 	 */
 	public OrderResult QueryFuzzyRecordByListPage(String fuzzyString, int currentPage, int pageSize);
 	
 	/** 
-	 * GetMaxIndexID¡A¥i¥H¬d¸ß¥Ø«e¯Á¤Ş«Ø¥ß³Ì«áªºID
-	 * @return  ³Ì«áªºID
+	 * GetMaxIndexIDï¼Œå¯ä»¥æŸ¥è©¢ç›®å‰ç´¢å¼•å»ºç«‹æœ€å¾Œçš„ID
+	 * @return  æœ€å¾Œçš„ID
 	 */
 	public int GetMaxIndexID();
 	
-	/** GetIndexIDStatus¡A¥i¥H¬d¸ß¸Ó¯Á¤ŞID«Ø¥ßªºª¬ºA(¤w«ØOR¥¼«Ø) 1 ¬°¤w«Ø , 0 ¬°¥¼«Ø
+	/** GetIndexIDStatusï¼Œå¯ä»¥æŸ¥è©¢è©²ç´¢å¼•IDå»ºç«‹çš„ç‹€æ…‹(å·²å»ºORæœªå»º) 1 ç‚ºå·²å»º , 0 ç‚ºæœªå»º
 	 * 
 	 * @param pid
-	 * @return  1 ¬°¤w«Ø , 0 ¬°¥¼«Ø
+	 * @return  1 ç‚ºå·²å»º , 0 ç‚ºæœªå»º
 	 */
 	public int GetIndexIDStatus(int pid);
 	

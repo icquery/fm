@@ -1,17 +1,28 @@
 package com.gecpp.fm;
 
 import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import javax.naming.Context;
+import javax.naming.InitialContext;
+import javax.naming.NamingException;
+
 
 public class OrderManager {
+	
+	private String OmUrl;
+	private String OmUser;
+	private String OmPwd;
 	
 	private static final String getAllInfoByPn_head = "SELECT a.inventory, a.offical_price, b.id, b.pn, b.supplier_pn, b.mfs "
 			+ "FROM pm_product b  LEFT JOIN pm_store_price a on a.product_id = b.id and (a.valid =1 OR a.valid IS NULL) "
@@ -20,23 +31,147 @@ public class OrderManager {
 			+ " where b.pn in(";
 	
 	private static final String getAllInfoByPn_foot = ") and b.supplier_id = c.id AND b.status is null order by b.pn desc limit 400";
-
 	
-	public OrderResult getProductByGroupInStore(List<String> notRepeatPns, Connection conn) {
+	private Connection conn = null;
+
+	protected void loadParams() {
+		
+		//InsertQueryLog("fuzzysearch", "loadParams()");
+
+		Context envurl, envusr, envpwd, envbase;
+
+		String entryomurl = null, entryomusr = null, entryompwd = null;
+
+		try {
+			
+			envurl = (Context) new InitialContext().lookup("java:comp/env");
+			entryomurl = (String) envurl.lookup("om.param.url");
+
+			envusr = (Context) new InitialContext().lookup("java:comp/env");
+			entryomusr = (String) envusr.lookup("om.param.user");
+
+			envpwd = (Context) new InitialContext().lookup("java:comp/env");
+			entryompwd = (String) envpwd.lookup("om.param.pwd");
+
+		} catch (NamingException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		
+		OmUrl = entryomurl;
+		OmUser = entryomusr;
+		OmPwd = entryompwd;
+		
+	}
+	
+	protected Connection getPgSqlConnection() throws Exception {
+        String driver = "org.postgresql.Driver";
+        String url = OmUrl;
+        String username = OmUser;
+        String password = OmPwd;
+        Class.forName(driver); // load MySQL driver
+        Connection conn = DriverManager.getConnection(url, username, password);
+        return conn;
+    }
+
+
+    protected void connectPostgrel(){
+        try
+
+        {
+
+            String url = "";
+            conn = getPgSqlConnection();
+
+            conn.setAutoCommit(true);
+
+
+
+        } catch (Exception ee)
+
+        {
+            System.out.print(ee.getMessage());
+
+        }
+    }
+
+	public OrderResult getProductByGroupInStore(List<String> notRepeatPns) {
+		
+		if(notRepeatPns == null)
+		{
+			OrderResult result = new OrderResult();
+			return result;
+		}
+			
+		if(notRepeatPns.size() == 0)
+		{
+			OrderResult result = new OrderResult();
+			return result;
+		}
+		
+		loadParams();
+		
+		connectPostgrel();
 		
 		List<Product> plist = new ArrayList<>();
 		
 		String pnsSql = createPnSql(notRepeatPns);
 		
-		plist = getAllInforByPnFuzzy(pnsSql, conn);
+		plist = getAllInforByPnFuzzy(pnsSql);
 		
 		plist = dealWithWebPListRepeat(plist);
 		
 		OrderResult result = formatFromProductList(plist);
+
+        //result = orderProductList(result);
+        
+        attemptClose(conn);
 		
-		return null;
+		return result;
 	}
-	
+
+    private OrderResult orderProductList(OrderResult result)
+    {
+        LinkedHashMap<String, Map<String, List<Integer>>> returnMap = result.getPidList();
+        returnMap = sortHashMapByValuesD(returnMap);
+
+        result.setPidList(returnMap);
+
+        return result;
+    }
+
+    public LinkedHashMap sortHashMapByValuesD(HashMap passedMap) {
+        List mapKeys = new ArrayList(passedMap.keySet());
+        List mapValues = new ArrayList(passedMap.values());
+        Collections.sort(mapValues);
+        Collections.sort(mapKeys);
+
+        LinkedHashMap sortedMap = new LinkedHashMap();
+
+        Iterator valueIt = mapValues.iterator();
+        while (valueIt.hasNext()) {
+            Object val = valueIt.next();
+            Iterator keyIt = mapKeys.iterator();
+
+            while (keyIt.hasNext()) {
+                Object key = keyIt.next();
+                String comp1 = passedMap.get(key).toString();
+                String comp2 = val.toString();
+
+                if (comp1.equals(comp2)){
+                    passedMap.remove(key);
+                    mapKeys.remove(key);
+                    sortedMap.put((String)key, (Double)val);
+                    break;
+                }
+
+            }
+
+        }
+        return sortedMap;
+    }
+
 	private OrderResult formatFromProductList(List<Product> plist) {
 		OrderResult result = new OrderResult();
         LinkedHashMap<String, Map<String, List<Product>>> resultMap = new LinkedHashMap<String, Map<String, List<Product>>>();
@@ -130,7 +265,7 @@ public class OrderManager {
         return pnSql;
     }
 	
-	private List<Product> getAllInforByPnFuzzy(String pnkey, Connection conn) {
+	private List<Product> getAllInforByPnFuzzy(String pnkey) {
 		 
 		String strSql = getAllInfoByPn_head +  pnkey  
 						+ getAllInfoByPn_foot;
@@ -205,7 +340,7 @@ public class OrderManager {
 				stmt = conn.createStatement();
 				rs = stmt.executeQuery(strSql);
 				while (rs.next())
-					sList.add(new Product(rs.getString(1), rs.getInt(2), rs.getString(3), rs.getInt(4)));
+					sList.add(new Product(rs.getInt(1), rs.getString(2), rs.getInt(3), rs.getString(4), rs.getString(5), rs.getString(6)));
 	
 			}
 
@@ -254,3 +389,4 @@ public class OrderManager {
 	}
 
 }
+

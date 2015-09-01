@@ -204,6 +204,240 @@ public class FuzzyInstance {
 		return sList;
 	}
 	
+	public OrderResult QueryFuzzyRecordByListPage(String strData, int currentPage, int pageSize, Connection conn)
+	{
+		long startTime = System.currentTimeMillis();
+
+        long elapsedSqlTime = 0L;
+        
+        OrderResult result = null;
+        
+        // 加亮
+        String strHighLight = "";
+
+        String[] strFullword = null;
+        List<String> sList = new ArrayList<String>();
+
+        List<IndexRate> sFullCompare = new ArrayList<IndexRate>();
+
+        String sNumber = "20000";
+        int nTotal = 20;
+
+        if (strData != null && !strData.isEmpty())
+        {
+            strData = strData.toUpperCase();
+            strFullword = strData.replaceAll("^[,\\s]+", "").split("[,\\s]+");
+        }
+        else
+        {
+        	result = new OrderResult();
+        	result.setTotalCount(0);
+        	
+        	return result;
+        }
+
+        String sCombine = "";
+
+        String strSql = "";
+
+        // 找各關鍵字對應的料號，如果重複，要排在前面
+        HashMap<Integer, Integer> PnOrderMap = new HashMap<Integer, Integer>();
+        OrdComparator ovc =  new OrdComparator(PnOrderMap);
+        TreeMap<Integer,Integer> ord_map = new TreeMap<Integer,Integer>(ovc);
+
+        HashMap<Integer, String> hashPn = new HashMap<Integer, String>();
+
+
+        // 取得關鍵字調整
+        List<IndexAdj> adjust = GetAdjust(conn);
+        // 取得縮寫字調整
+        List<IndexShort> breif = GetShort(conn);
+
+        // 20150729 for 精密搜尋
+        int order = 0;
+        int orderCount = 0;
+
+        ArrayList<Integer> aryPreOrder = new ArrayList<Integer>();
+
+        ArrayList<Integer> aryOrderCount = new ArrayList<Integer>();
+
+
+
+        if (strFullword != null) {
+            // 增加縮寫字如:TI => Texas Instruments
+            ArrayList<String> keywords = new ArrayList<String>();
+
+            for (String stoken : strFullword)
+            {
+                keywords.add(stoken);
+
+                for(IndexShort element : breif)
+                {
+                    if(element.getWord().equalsIgnoreCase(stoken))
+                    {
+                        keywords.add(element.getAlterword());
+                        keywords.remove(stoken);	// 置換字要不要移除，之後再討論
+                    }
+                }
+            }
+
+
+            for (String stoken : keywords) {
+
+                // 記錄第幾個查詢字
+                order++;
+                orderCount = 0;
+                aryPreOrder.clear();
+                
+                // 加亮
+                strHighLight += stoken + ",";
+
+                strSql = "";
+
+                if (SkipWord(stoken) || stoken.length() == 0)
+                    continue;
+
+                String sKeyword = "";
+                String sFullword = "";
+                sList.clear();
+
+                sKeyword = stoken;
+
+                sList.add(stoken);
+
+
+                String strInverseArray[] = stoken.split("(?<=\\D)(?=\\d)|(?<=\\d)(?=\\D)");
+                String strInverseString = "";
+
+                // 去除尾部
+                if(strInverseArray.length > 2)
+                {
+                    for(int i=0; i<strInverseArray.length - 1; i++)
+                    {
+                        strInverseString += strInverseArray[i].toString();
+                    }
+
+                    sList.add(strInverseString);
+                }
+
+
+                // 2015/08/19 云云認為模糊搜尋搜出無關緊要的 end
+
+                // 再加一個不要段字的
+                sList.remove(stoken);
+                //sList.add(stoken);
+                strSql += "(select pn, weight, fullword, kind, page, " + order + " from qeindex where word like '"
+                        + stoken + "%' limit " + sNumber + ") ";
+                strSql += " union ";
+
+                // 目前先都不要用like
+                for (int i = 0; i < sList.size(); i++) {
+
+                    if(!stoken.equals((sList).get(i)))
+                    {
+
+                        strSql += "(select pn, weight, fullword, kind, page, " + order + " from qeindex where word like '"
+                                + sList.get(i) + "%' order by weight desc limit " + sNumber + ") ";
+                        strSql += " union ";
+                        
+                        // 加亮
+                        strHighLight += sList.get(i) + ",";
+
+                    }
+                }
+
+
+
+                strSql = strSql.substring(0, strSql.length() - 7);
+
+                long startSqlTime = System.currentTimeMillis();
+
+                List<IndexRate> sIndexRate = GetAllIndexRate(strSql, conn);
+
+                long stopSqlTime = System.currentTimeMillis();
+                elapsedSqlTime += stopSqlTime - startSqlTime;
+
+                sCombine += strSql + ":" + elapsedSqlTime + ";";
+
+
+
+                int nAddWeight = 0;
+                List<Integer> keywordList = new ArrayList<Integer>();
+
+                for(IndexRate iter:sIndexRate)
+                {
+                    // 同一篇同一個關鍵字就不要再重複加了
+                    if(keywordList.contains(iter.getPage()))
+                        continue;
+                    else
+                    {
+                        keywordList.add(iter.getPage());
+                    }
+
+                    if(iter.getKind() == 0)
+                        nAddWeight = 5;
+                    else
+                        nAddWeight = 1;
+
+                    if(PnOrderMap.containsKey(iter.getPage()))
+                    {
+                        int nWeight = PnOrderMap.get(iter.getPage());
+
+                        PnOrderMap.put(iter.getPage(), nAddWeight + nWeight);
+
+                    }
+                    else {
+                        PnOrderMap.put(iter.getPage(), nAddWeight);
+                    }
+
+                    // 放PN到對照表中
+                    hashPn.put(iter.getPage(), iter.getPn());
+                }
+
+
+            }
+        }
+
+        ord_map.putAll(PnOrderMap);
+
+        List<String> sPnReturn = new ArrayList<String>();
+
+        for(Map.Entry<Integer,Integer> entry : ord_map.entrySet()) {
+            if(!sPnReturn.contains(hashPn.get(entry.getKey())))
+            {
+                sPnReturn.add(hashPn.get(entry.getKey()));
+            }
+        }
+
+        long stopTime = System.currentTimeMillis();
+        long elapsedTime = stopTime - startTime;
+
+        // log query history
+        //InsertQueryLog(strData, "AllTime: " + elapsedTime + ", SqlTime : " + elapsedSqlTime + ", Sql : " + sCombine + "; " + sorted_map.toString(), conn);
+        //InsertQueryLog(strData, "AllTime: " + elapsedTime + ", SqlTime : " + elapsedSqlTime + ", Sql : " + sCombine, conn);
+        InsertQueryLog(strData, "AllTime: " + elapsedTime + ", SqlTime : " + elapsedSqlTime + ", Sql : " + sCombine + "; " + ord_map.toString(), conn);
+
+        
+        // 交給排序模組
+        List<String> OmList = new ArrayList<String>();
+        
+        for(int i=(currentPage - 1) * pageSize; i < currentPage * pageSize; i++)
+        {
+        	if(i<sPnReturn.size())
+        	{
+        		OmList.add(sPnReturn.get(i));
+        	}
+        }
+        
+        OrderManager om = new OrderManager();
+        result = om.getProductByGroupInStore(OmList);
+
+        result.setHighLight(strHighLight);
+        result.setTotalCount(sPnReturn.size());
+        
+        return result;
+	}
+	
 	public List<String> GetQueryByEachWord(String strData, Connection conn, CRFClassifier<CoreLabel> segmenter)
 	{
 		long startTime = System.currentTimeMillis();
