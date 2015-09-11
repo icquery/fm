@@ -1,6 +1,10 @@
 package com.gecpp.fm;
 
 import java.sql.Connection;
+
+import org.json.*;
+
+import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -8,12 +12,18 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import javax.naming.Context;
+import javax.naming.InitialContext;
+import javax.naming.NamingException;
 
 import edu.stanford.nlp.ie.crf.CRFClassifier;
 import edu.stanford.nlp.ling.CoreLabel;
@@ -72,8 +82,154 @@ class OrdComparator implements Comparator<Integer> {
 
 public class FuzzyInstance {
 	
+	
 	private String strSkipWord = ", . ; + - | / \\ ' \" : ? < > [ ] { } ! @ # $ % ^ & * ( ) ~ ` _ － ‐ ， （ ）";
 	private String[] SkipWord = null;
+	
+	// 讀取 pm
+	private Connection pmConn = null;
+	
+	private String OmUrl;
+	private String OmUser;
+	private String OmPwd;
+	
+	private List<String> getNotRepeatPns(List<String> pns, List<String> fuzzyPns) {
+        List<String> notRepeatPns = new ArrayList<>();
+        Set<String> pnSet = new HashSet<>();
+        pnSet.addAll(pns);
+        for (int i = 0; i < fuzzyPns.size() && pnSet.size() < 20; i++) {
+            pnSet.add(fuzzyPns.get(i));
+        }
+        notRepeatPns.addAll(pnSet);
+
+        return notRepeatPns;
+    }
+	
+	private List<String> getPnsByPnKey(String pnKey) {
+	
+		List<String> sList = new ArrayList<>();
+		
+		String strSql = "(select pn from pm_supplier_pn where supplier_pn_key = '" + pnKey + "' limit 20) "
+		+ " UNION (SELECT pn FROM pm_pn where pn_key = '" + pnKey + "' limit 20) ORDER BY pn limit 20";
+
+		try {
+
+			Statement stmt = null;
+			ResultSet rs = null;
+
+			try {
+				stmt = pmConn.createStatement();
+				rs = stmt.executeQuery(strSql);
+				while (rs.next())
+					sList.add(rs.getString(1));
+	
+			}
+
+			finally {
+
+				attemptClose(rs);
+				attemptClose(stmt);
+
+			}
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return sList;
+
+	}
+	
+	/**
+     * create by lhp 2015-07-20 copy from qegoo
+     * 根据pn生成pn_key
+     *
+     * @param pn
+     * @return
+     */
+    private String parsePnKey(String pn) {
+        String pnKey = pn;
+
+        pnKey = pnKey.replaceAll("\"", "&quot;");
+        pnKey = pnKey.replaceAll("\'", "&apos;");
+        pnKey = pnKey.trim();
+
+        pnKey = org.apache.commons.lang3.StringUtils.replaceEach(pnKey,
+                new String[]{" ", "/", "+", "?", "%", "#", "&", "=", "-", "(", ")", "\'", ".", "quot;", "apos;", "\""},
+                new String[]{"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""});
+
+        pnKey = pnKey.replace("|", "/"); // 对在页面里将modelname中/转换成|,在此处转换回/
+        pnKey = pnKey.replace("<", "");
+        pnKey = pnKey.replace(">", "");
+
+        // 去除传参前后空格
+        pnKey = pnKey.toUpperCase().trim();
+        pnKey = pnKey + "%";
+
+        return pnKey;
+    }
+	
+	protected void loadParams() {
+		
+		//InsertQueryLog("fuzzysearch", "loadParams()");
+
+		Context envurl, envusr, envpwd, envbase;
+
+		String entryomurl = null, entryomusr = null, entryompwd = null;
+
+		try {
+			
+			envurl = (Context) new InitialContext().lookup("java:comp/env");
+			entryomurl = (String) envurl.lookup("om.param.url");
+
+			envusr = (Context) new InitialContext().lookup("java:comp/env");
+			entryomusr = (String) envusr.lookup("om.param.user");
+
+			envpwd = (Context) new InitialContext().lookup("java:comp/env");
+			entryompwd = (String) envpwd.lookup("om.param.pwd");
+
+		} catch (NamingException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		
+		OmUrl = entryomurl;
+		OmUser = entryomusr;
+		OmPwd = entryompwd;
+		
+	}
+	
+	protected Connection getPgSqlConnection() throws Exception {
+        String driver = "org.postgresql.Driver";
+        String url = OmUrl;
+        String username = OmUser;
+        String password = OmPwd;
+        Class.forName(driver); // load MySQL driver
+        Connection conn = DriverManager.getConnection(url, username, password);
+        return conn;
+    }
+
+
+    protected void connectPostgrel(){
+        try
+
+        {
+
+            String url = "";
+            pmConn = getPgSqlConnection();
+
+            pmConn.setAutoCommit(true);
+
+
+
+        } catch (Exception ee)
+
+        {
+            System.out.print(ee.getMessage());
+
+        }
+    }
 	
 	public int DeleteFuzzyRecord(int pid, Connection conn) {
 		String strSql = "delete from qeindex where page = " + pid;
@@ -110,33 +266,357 @@ public class FuzzyInstance {
 			param.replaceAll("[\"\']", "");
  
 		// 料號
-		scoreMap = segmentData(pn, segmenter);
+        //scoreMap = segmentData(pn);
 
-		// 料號需有完整紀錄
-		if (!scoreMap.containsKey(pn)) {
-			InsertPostgrel(pn, Integer.parseInt(pid), 1, 0, pn, mfs, catalog, pn, conn);
-		}
+        // 料號需有完整紀錄
+        //if(!scoreMap.containsKey(pn))
+        //{
+        InsertPostgrel(pn.toUpperCase(),
+                Integer.parseInt(pid),
+                1,
+                0, pn, mfs, catalog, pn, conn);
+        //}
 
-		InsertAllWord(pid, 0, pn,mfs, catalog, scoreMap, conn);
+        //InsertAllWord(pid, 0, pn, mfs, catalog, scoreMap);
 
-		// mfs
-		scoreMap = segmentData(mfs, segmenter);
-		InsertAllWord(pid, 1, pn,mfs, catalog, scoreMap, conn);
+        // mfs
+        scoreMap = segmentData(mfs, segmenter);
+        InsertAllWord(pid, 1, pn, mfs, catalog, scoreMap, conn);
 
-		// catalog
-		scoreMap = segmentData(catalog, segmenter);
-		InsertAllWord(pid, 2, pn,mfs, catalog, scoreMap, conn);
+        // catalog
+        scoreMap = segmentDataCatalog(catalog);
+        InsertAllWord(pid, 2, pn, mfs, catalog, scoreMap, conn);
 
-		// description
-		scoreMap = segmentData(description, segmenter);
-		InsertAllWord(pid, 3, pn,mfs, catalog, scoreMap, conn);
+        // description
+        scoreMap = segmentDataDDesc(description);
+        InsertAllWord(pid, 3, pn, mfs, catalog, scoreMap, conn);
 
-		// param
-		scoreMap = segmentData(param, segmenter);
-		InsertAllWord(pid, 4, pn,mfs, catalog, scoreMap, conn);
+        // param
+        scoreMap = segmentDataParam(param);
+        InsertAllWord(pid, 4, pn, mfs, catalog, scoreMap, conn);
 		
 		
 	}
+	
+	
+	protected Map<String, String> segmentDataCatalog(String strData)
+    {
+        String [] strFullword = null;
+
+        List<String> sList = new ArrayList<String>();
+        List<String> sFullword = new ArrayList<String>();
+
+        Map<String, String> scoreMap = new HashMap<String, String>();
+
+        String val = null;
+
+        val = strData;
+
+
+        if (val != null) {
+
+            val = val.toUpperCase();
+
+            val = val.trim();
+
+            val = val.replace("，", " ");
+
+            val = val.replace(">", " ");
+
+            strFullword = val.split(" ");
+
+            if(strFullword != null) {
+                for (String stoken : strFullword) {
+
+
+
+                    stoken = stoken.replace(" ", "");
+
+                    if (SkipWord(stoken) || stoken.length() == 0)
+                        continue;
+
+
+                    if (stoken.trim() == "")
+                        continue;
+
+                    //InsertPostgrel(stoken, Integer.parseInt(pid), 1, 4, pn, mfs, catalog, val);
+                    sList.add(stoken);
+                    sFullword.add(val);
+                }
+            }
+
+        }
+
+
+        for(int i=0; i<sList.size(); i++)
+        {
+            float weight = 0.0f;
+
+            weight = (float)similarity(sList.get(i), sFullword.get(i));
+
+
+            if(scoreMap.containsKey(sList.get(i).toUpperCase()))
+            {
+
+                String sValue = scoreMap.get(sList.get(i).toUpperCase());
+                String [] token = sValue.split(",");
+
+                double score = Double.parseDouble(token[0]);
+
+                // 取最大值
+                if(score < weight)
+                    score = weight;
+
+                String s = Double.toString(score);
+
+                if(s.length() > 4)
+                    s = s.substring(0, 4);
+
+                s += "," + sFullword.get(i);
+
+                scoreMap.put(sList.get(i).toUpperCase(), s);
+
+            }
+            else {
+                String s = Float.toString(weight) + "," + sFullword.get(i);
+                scoreMap.put(sList.get(i).toUpperCase(), s);
+            }
+        }
+
+        return scoreMap;
+
+    }
+
+    protected Map<String, String> segmentDataDDesc(String strData)
+    {
+        String [] strFullword = null;
+
+        List<String> sList = new ArrayList<String>();
+        List<String> sFullword = new ArrayList<String>();
+
+        Map<String, String> scoreMap = new HashMap<String, String>();
+
+        String val = null;
+
+        val = strData;
+
+
+        if (val != null) {
+
+            val = val.toUpperCase();
+
+            val = val.trim();
+
+            val = val.replace("，", " ");
+
+
+            strFullword = val.split(" ");
+
+            if(strFullword != null) {
+                for (String stoken : strFullword) {
+
+
+                    stoken = stoken.replace(" ", "");
+
+                    if (SkipWord(stoken) || stoken.length() == 0)
+                        continue;
+
+                    if (stoken.trim() == "")
+                        continue;
+
+                    //InsertPostgrel(stoken, Integer.parseInt(pid), 1, 4, pn, mfs, catalog, val);
+                    sList.add(stoken);
+                    sFullword.add(val);
+                }
+            }
+
+        }
+
+
+        for(int i=0; i<sList.size(); i++)
+        {
+            float weight = 0.0f;
+
+            weight = (float)similarity(sList.get(i), sFullword.get(i));
+
+
+            if(scoreMap.containsKey(sList.get(i).toUpperCase()))
+            {
+
+                String sValue = scoreMap.get(sList.get(i).toUpperCase());
+                String [] token = sValue.split(",");
+
+                double score = Double.parseDouble(token[0]);
+
+                // 取最大值
+                if(score < weight)
+                    score = weight;
+
+                String s = Double.toString(score);
+
+                if(s.length() > 4)
+                    s = s.substring(0, 4);
+
+                s += "," + sFullword.get(i);
+
+                scoreMap.put(sList.get(i).toUpperCase(), s);
+
+            }
+            else {
+                String s = Float.toString(weight) + "," + sFullword.get(i);
+                scoreMap.put(sList.get(i).toUpperCase(), s);
+            }
+        }
+
+        return scoreMap;
+
+    }
+
+    protected Map<String, String> segmentDataParam(String strData)
+    {
+        String [] strFullword = null;
+
+        List<String> sList = new ArrayList<String>();
+        List<String> sFullword = new ArrayList<String>();
+
+        Map<String, String> scoreMap = new HashMap<String, String>();
+
+        if(strData != null && !strData.isEmpty()) {
+
+            try {
+                JSONObject json = new JSONObject(strData);
+
+                Iterator<String> keys = json.keys();
+                while (keys.hasNext()) {
+                    String key = keys.next();
+                    String val = null;
+                    try {
+                        val = json.getString(key);
+                    } catch (Exception e) {
+                        System.out.println(e.toString());
+                    }
+
+                    if (val != null) {
+
+                        val = val.toUpperCase();
+
+                        val = val.trim();
+
+                        val = val.replace("，", " ");
+
+                        if (val.contains("HTTP"))
+                            continue;
+
+                        if (val.contains("PDF"))
+                            continue;
+
+                        strFullword = val.split(" ");
+
+                        if (strFullword != null) {
+                            for (String stoken : strFullword) {
+
+
+
+                                stoken = stoken.replace(" ", "");
+
+                                if (SkipWord(stoken) || stoken.length() == 0)
+                                    continue;
+
+                                if (stoken.trim() == "")
+                                    continue;
+
+                                //InsertPostgrel(stoken, Integer.parseInt(pid), 1, 4, pn, mfs, catalog, val);
+                                sList.add(stoken);
+                                sFullword.add(val);
+                            }
+                        }
+
+                    }
+
+
+                }
+            } catch (JSONException e) {
+                return scoreMap;
+            }
+
+            for (int i = 0; i < sList.size(); i++) {
+                float weight = 0.0f;
+
+                weight = (float) similarity(sList.get(i), sFullword.get(i));
+
+
+                if (scoreMap.containsKey(sList.get(i).toUpperCase())) {
+
+                    String sValue = scoreMap.get(sList.get(i).toUpperCase());
+                    String[] token = sValue.split(",");
+
+                    double score = 0.0;
+                    try{
+                        score = Double.parseDouble(token[0]);
+                    }
+                    catch (NumberFormatException e)
+                    {}
+
+                    // 取最大值
+                    if (score < weight)
+                        score = weight;
+
+                    String s = Double.toString(score);
+
+                    if (s.length() > 4)
+                        s = s.substring(0, 4);
+
+                    s += "," + sFullword.get(i);
+
+                    scoreMap.put(sList.get(i).toUpperCase(), s);
+
+                } else {
+                    String s = Float.toString(weight) + "," + sFullword.get(i);
+                    scoreMap.put(sList.get(i).toUpperCase(), s);
+                }
+            }
+        }
+
+        return scoreMap;
+
+    }
+    
+    protected double similarity(String s1, String s2) {
+        String longer = s1, shorter = s2;
+        if (s1.length() < s2.length()) { // longer should always have greater length
+            longer = s2; shorter = s1;
+        }
+        int longerLength = longer.length();
+        if (longerLength == 0) { return 1.0; /* both strings are zero length */ }
+        return (longerLength - editDistance(longer, shorter)) / (double) longerLength;
+    }
+
+    protected int editDistance(String s1, String s2) {
+        s1 = s1.toLowerCase();
+        s2 = s2.toLowerCase();
+
+        int[] costs = new int[s2.length() + 1];
+        for (int i = 0; i <= s1.length(); i++) {
+            int lastValue = i;
+            for (int j = 0; j <= s2.length(); j++) {
+                if (i == 0)
+                    costs[j] = j;
+                else {
+                    if (j > 0) {
+                        int newValue = costs[j - 1];
+                        if (s1.charAt(i - 1) != s2.charAt(j - 1))
+                            newValue = Math.min(Math.min(newValue, lastValue),
+                                    costs[j]) + 1;
+                        costs[j - 1] = lastValue;
+                        lastValue = newValue;
+                    }
+                }
+            }
+            if (i > 0)
+                costs[s2.length()] = lastValue;
+        }
+        return costs[s2.length()];
+    }
 	
 	protected List<IndexAdj> GetAdjust(Connection conn)
 	{
@@ -211,6 +691,11 @@ public class FuzzyInstance {
         long elapsedSqlTime = 0L;
         
         OrderResult result = null;
+        
+        // 用歡平原本的方式
+        loadParams();
+		connectPostgrel();
+		List<String> pns = new ArrayList<String>();
         
         // 加亮
         String strHighLight = "";
@@ -373,11 +858,16 @@ public class FuzzyInstance {
                     {
                         keywordList.add(iter.getPage());
                     }
+                    
+                    
 
                     if(iter.getKind() == 0)
-                        nAddWeight = 5;
+                    {
+                    	double nSim = similarity(stoken, iter.getFullword());
+                        nAddWeight = (int) (500 * nSim);
+                    }
                     else
-                        nAddWeight = 1;
+                        nAddWeight = 100;
 
                     if(PnOrderMap.containsKey(iter.getPage()))
                     {
@@ -394,13 +884,25 @@ public class FuzzyInstance {
                     hashPn.put(iter.getPage(), iter.getPn());
                 }
 
+                // 歡平的方式給比較高
+                String pnkey = parsePnKey(stoken);
+                List<String> tokenpns = getPnsByPnKey(pnkey);
+                
+                pns.addAll(tokenpns);
+                
 
             }
         }
+        
+        
+        attemptClose(pmConn);
 
         ord_map.putAll(PnOrderMap);
 
         List<String> sPnReturn = new ArrayList<String>();
+        
+        // 歡平的方式給比較高
+        sPnReturn.addAll(pns);
 
         for(Map.Entry<Integer,Integer> entry : ord_map.entrySet()) {
             if(!sPnReturn.contains(hashPn.get(entry.getKey())))
@@ -408,6 +910,7 @@ public class FuzzyInstance {
                 sPnReturn.add(hashPn.get(entry.getKey()));
             }
         }
+       
 
         long stopTime = System.currentTimeMillis();
         long elapsedTime = stopTime - startTime;
@@ -415,7 +918,8 @@ public class FuzzyInstance {
         // log query history
         //InsertQueryLog(strData, "AllTime: " + elapsedTime + ", SqlTime : " + elapsedSqlTime + ", Sql : " + sCombine + "; " + sorted_map.toString(), conn);
         //InsertQueryLog(strData, "AllTime: " + elapsedTime + ", SqlTime : " + elapsedSqlTime + ", Sql : " + sCombine, conn);
-        InsertQueryLog(strData, "AllTime: " + elapsedTime + ", SqlTime : " + elapsedSqlTime + ", Sql : " + sCombine + "; " + ord_map.toString(), conn);
+        //InsertQueryLog(strData, "AllTime: " + elapsedTime + ", SqlTime : " + elapsedSqlTime + ", Sql : " + sCombine + "; " + sPnReturn.toString(), conn);
+        InsertQueryLog(strData, "AllTime: " + elapsedTime + ", SqlTime : " + elapsedSqlTime + ", Sql : " + sCombine, conn);
 
         
         // 交給排序模組
@@ -432,6 +936,8 @@ public class FuzzyInstance {
         OrderManager om = new OrderManager();
         result = om.getProductByGroupInStore(OmList);
 
+        // 去除逗號
+        strHighLight = strHighLight.substring(0, strHighLight.length() - 1);
         result.setHighLight(strHighLight);
         result.setTotalCount(sPnReturn.size());
         
@@ -1377,7 +1883,7 @@ public class FuzzyInstance {
 
 				attemptClose(rs);
 				attemptClose(stmt);
-
+				attemptClose(con);
 			}
 
 		} catch (Exception e) {
@@ -1411,7 +1917,7 @@ public class FuzzyInstance {
 
 				attemptClose(rs);
 				attemptClose(stmt);
-
+				attemptClose(con);
 			}
 
 		} catch (Exception e) {

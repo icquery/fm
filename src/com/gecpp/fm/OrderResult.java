@@ -1,42 +1,52 @@
 package com.gecpp.fm;
 
+import java.io.Serializable;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-public class OrderResult {
-	
-	
+public class OrderResult implements Serializable  {
 	public int getTotalCount() {
 		return TotalCount;
 	}
 	public void setTotalCount(int totalCount) {
 		TotalCount = totalCount;
 	}
-	
-	
-	
 	public String getHighLight() {
 		return HighLight;
 	}
 	public void setHighLight(String highLight) {
 		HighLight = highLight;
 	}
-	
 	public LinkedHashMap<String, Map<String, List<Integer>>> getPidList() {
 		return PidList;
 	}
 	public void setPidList(LinkedHashMap<String, Map<String, List<Integer>>> pidList) {
 		PidList = pidList;
 	}
-	
-	
+	public List<Integer> getIds() {
+		return ids;
+	}
+	public void setIds(List<Integer> ids) {
+		this.ids = ids;
+	}
+	public String[] getPns() {
+		return pns;
+	}
+	public void setPns(String[] pns) {
+		this.pns = pns;
+	}
 
-	private int TotalCount;			// Á`¼Æ
+
+	private int TotalCount;			// å…¨éƒ¨è³‡æ–™é‡
 	
-	private String HighLight;		// ÃöÁä¦r¡A¥H³r¸¹°Ï¤À
+	private String HighLight;		// é—œéµå­—ï¼Œä»¥é€—è™Ÿå€åˆ†(TI, OP, LM358)
 	
-	private LinkedHashMap<String, Map<String,List<Integer>>>  PidList;	// µ²ºc  (®Æ¸¹, Map<¨ÑÀ³°Ó, List<PID>>)
+	private LinkedHashMap<String, Map<String,List<Integer>>>  PidList;	// çµæ§‹  (æ–™è™Ÿ, Map<ä¾›æ‡‰å•†, List<PID>>)
+	
+	private List<Integer> ids;		// å½“å‰é¡µæ‰€æœ‰äº§å“çš„idåˆ—è¡¨(List<PID>)
+	
+	private String [] pns;			// å½“å‰é¡µæ‰€æœ‰äº§å“çš„pnåˆ—è¡¨(String[])
 
 
 }
