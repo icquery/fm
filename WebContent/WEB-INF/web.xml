@@ -26,30 +26,100 @@
 	<env-entry>
     	<env-entry-name>fm.param.url</env-entry-name>
     	<env-entry-type>java.lang.String</env-entry-type>
-    	<env-entry-value>jdbc:postgresql://192.168.3.33:5432/qeindex</env-entry-value>
-    	<!-- <env-entry-value>jdbc:postgresql://localhost:5432/qeindex</env-entry-value> -->
+    	<env-entry-value>jdbc:postgresql://localhost:5432/qeindex</env-entry-value>
 	</env-entry>
 	
 	<env-entry>
     	<env-entry-name>fm.param.user</env-entry-name>
     	<env-entry-type>java.lang.String</env-entry-type>
-    	<env-entry-value>qic_pm</env-entry-value>
-    	<!-- <env-entry-value>postgres</env-entry-value> -->
+    	<env-entry-value>postgres</env-entry-value>
 	</env-entry>
 
 	<env-entry>
     	<env-entry-name>fm.param.pwd</env-entry-name>
     	<env-entry-type>java.lang.String</env-entry-type>
-    	<env-entry-value>fhqcel!@520</env-entry-value>
-    	<!-- <env-entry-value>2xxiiill</env-entry-value> -->
+    	<env-entry-value>123456</env-entry-value>
 	</env-entry>
 	
 	<env-entry>
     	<env-entry-name>fm.param.base</env-entry-name>
     	<env-entry-type>java.lang.String</env-entry-type>
     	<env-entry-value>/home/login</env-entry-value>
-    	<!--<env-entry-value>C:\Users\dereck\Desktop\Standford</env-entry-value> --> 
+	</env-entry>
+	
+	<env-entry>
+    	<env-entry-name>om.param.url</env-entry-name>
+    	<env-entry-type>java.lang.String</env-entry-type>
+    	<env-entry-value>jdbc:postgresql://192.168.3.236:5432/pm</env-entry-value>
+	</env-entry>
+	
+	<env-entry>
+    	<env-entry-name>om.param.user</env-entry-name>
+    	<env-entry-type>java.lang.String</env-entry-type>
+    	<env-entry-value>pm_reader</env-entry-value>
+	</env-entry>
+
+	<env-entry>
+    	<env-entry-name>om.param.pwd</env-entry-name>
+    	<env-entry-type>java.lang.String</env-entry-type>
+    	<env-entry-value>pm_reader</env-entry-value>
 	</env-entry>
 
 
+	<env-entry>
+    	<env-entry-name>om.param.redis</env-entry-name>
+    	<env-entry-type>java.lang.String</env-entry-type>
+    	<env-entry-value>127.0.0.1</env-entry-value>
+	</env-entry>
+	
+	<env-entry>
+    	<env-entry-name>fm.param.url.debug</env-entry-name>
+    	<env-entry-type>java.lang.String</env-entry-type>
+    	<env-entry-value>jdbc:postgresql://192.168.3.221:5432/qeindex</env-entry-value>
+	</env-entry>
+	
+	<env-entry>
+    	<env-entry-name>fm.param.user.debug</env-entry-name>
+    	<env-entry-type>java.lang.String</env-entry-type>
+    	<env-entry-value>postgres</env-entry-value>
+	</env-entry>
+
+	<env-entry>
+    	<env-entry-name>fm.param.pwd.debug</env-entry-name>
+    	<env-entry-type>java.lang.String</env-entry-type>
+    	<env-entry-value>123456</env-entry-value>
+	</env-entry>
+	
+	<env-entry>
+    	<env-entry-name>fm.param.base.debug</env-entry-name>
+    	<env-entry-type>java.lang.String</env-entry-type>
+    	<env-entry-value>D:\Standford</env-entry-value> 
+	</env-entry>
+	
+	<env-entry>
+    	<env-entry-name>om.param.url.debug</env-entry-name>
+    	<env-entry-type>java.lang.String</env-entry-type>
+    	<env-entry-value>jdbc:postgresql://192.168.3.220:5432/pm</env-entry-value>
+	</env-entry>
+	
+	<env-entry>
+    	<env-entry-name>om.param.user.debug</env-entry-name>
+    	<env-entry-type>java.lang.String</env-entry-type>
+    	<env-entry-value>readpm</env-entry-value>
+	</env-entry>
+
+	<env-entry>
+    	<env-entry-name>om.param.pwd.debug</env-entry-name>
+    	<env-entry-type>java.lang.String</env-entry-type>
+    	<env-entry-value>readpm</env-entry-value>
+	</env-entry>
+
+
+	<env-entry>
+    	<env-entry-name>om.param.redis.debug</env-entry-name>
+    	<env-entry-type>java.lang.String</env-entry-type>
+    	<env-entry-value>192.168.3.221</env-entry-value>
+
+	</env-entry>
+	
 	</web-app>

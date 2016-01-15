@@ -44,6 +44,11 @@ public interface IFuzzySearch {
 	 */
 	public OrderResult QueryFuzzyRecordByListPage(String fuzzyString, int currentPage, int pageSize);
 	
+	/**
+	 * QueryFuzzyRecordByDeptSearch，2015/11/30深度搜尋
+	 */
+	public OrderResult QueryFuzzyRecordByDeptSearch(String pn, int inventory, int lead, int rohs, List<Integer> mfs, List<Integer> abbreviation, int currentPage, int pageSize);
+	
 	/** 
 	 * GetMaxIndexID，可以查詢目前索引建立最後的ID
 	 * @return  最後的ID
@@ -56,6 +61,12 @@ public interface IFuzzySearch {
 	 * @return  1 為已建 , 0 為未建
 	 */
 	public int GetIndexIDStatus(int pid);
+	
+	
+	/**
+	 * getProductByMultipleSearch，2016/01/07 多料號搜索
+	 */
+	public QueryResult getProductByMultipleSearch(String[]  parts);
 	
 	
 	

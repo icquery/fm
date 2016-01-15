@@ -67,7 +67,24 @@ public class ServiceImpl extends HessianServlet implements IFuzzySearch {
 		// TODO Auto-generated method stub
 		FuzzyInstance fi = new FuzzyInstance();
 		
-		OrderResult result = fi.QueryFuzzyRecordByListPage(fuzzyString, currentPage, pageSize, fm.GetDbConnection());
+		OrderResult result = fi.QueryFuzzyRecordByListPage(fuzzyString, currentPage, pageSize);
+		
+		return result;
+	}
+	
+	@Override
+	public OrderResult QueryFuzzyRecordByDeptSearch(String pn, 
+			int inventory, 
+			int lead, 
+			int rohs, 
+			List<Integer> mfs, 
+			List<Integer> abbreviation, 
+			int currentPage, 
+			int pageSize)
+	{
+		FuzzyInstance fi = new FuzzyInstance();
+		
+		OrderResult result = fi.QueryFuzzyRecordByDeptSearch(pn, inventory, lead, rohs, mfs, abbreviation, currentPage, pageSize);
 		
 		return result;
 	}
@@ -95,6 +112,15 @@ public class ServiceImpl extends HessianServlet implements IFuzzySearch {
 		super.destroy();
 	}
 
+	@Override
+	public QueryResult getProductByMultipleSearch(String[]  parts)
+	{
+		FuzzyInstance fi = new FuzzyInstance();
+		
+		QueryResult result = fi.QueryProductByMultipleSearch(parts);
+		
+		return result;
+	}
 	
 
 }
