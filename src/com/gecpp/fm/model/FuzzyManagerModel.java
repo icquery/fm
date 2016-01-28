@@ -4,11 +4,13 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 import com.gecpp.fm.Dao.IndexAdj;
 import com.gecpp.fm.Dao.IndexRate;
 import com.gecpp.fm.Dao.IndexShort;
+import com.gecpp.fm.Util.CommonUtil;
 import com.gecpp.fm.Util.DbHelper;
 
 public class FuzzyManagerModel {
@@ -73,6 +75,51 @@ public class FuzzyManagerModel {
 		}
 
 		return sList;
+	}
+	
+	// 20160127 料號預先排序
+	public static HashMap<String, Integer> OrderPn(List<String> pns)
+	{
+		HashMap<String, Integer> hashPnWeight = new HashMap<String, Integer>();
+		
+		String pnSql = CommonUtil.parsePnSql(pns);
+		
+		String strSql;
+		
+		strSql = "select pn, weight from qeindexweight where pn in (" + pnSql + ") ";
+		
+		try {
+			Connection conn = DbHelper.connectFm();
+			Statement stmt = null;
+			ResultSet rs = null;
+
+			try {
+				stmt = conn.createStatement();
+				rs = stmt.executeQuery(strSql);
+				while (rs.next())
+					hashPnWeight.put(rs.getString(1), rs.getInt(2));
+				// System.out.println(rs.getString(0));
+			}
+
+			finally {
+
+				DbHelper.attemptClose(rs);
+				DbHelper.attemptClose(stmt);
+				DbHelper.attemptClose(conn);
+			}
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		// 再檢查一次，看有沒有漏掉的值
+		for(String pn : pns)
+		{
+			if(!hashPnWeight.containsKey(pn))
+				hashPnWeight.put(pn, 0);
+		}
+		
+		return hashPnWeight;
 	}
 	
 	public static List<IndexRate> GetAllIndexRate(String stoken, int order, int limitNumber)

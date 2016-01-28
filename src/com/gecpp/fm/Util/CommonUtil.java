@@ -17,6 +17,30 @@ import org.json.JSONObject;
 import com.gecpp.fm.fuzzysearch;
 
 public class CommonUtil {
+	
+	// 20160127
+	public static String parsePnSql(List<String> pns) {
+		String pnSql = "";
+
+        int pnsCount = pns.size();
+
+        if (pns != null && pnsCount > 0) {
+            StringBuilder stringBuilder = new StringBuilder();
+
+            for (int i = 0; i < pnsCount; i++) {
+                String s = pns.get(i);
+                s = s.replace("'", "''");
+                stringBuilder.append(s).append("', '");
+            }
+            pnSql = stringBuilder.substring(0, stringBuilder.length() - 3);
+        } else {
+            pnSql = "";
+        }
+
+        return "'" + pnSql;
+
+    }
+	
 	public static String parsePnKey(String pn) {
         String pnKey = pn;
 
@@ -47,9 +71,10 @@ public class CommonUtil {
         pnKey = pnKey.replaceAll("\'", "&apos;");
         pnKey = pnKey.trim();
 
-        pnKey = org.apache.commons.lang3.StringUtils.replaceEach(pnKey,
-                new String[]{" ", "/", "+", "?", "%", "#", "&", "=", "-", "(", ")", "\'", ".", "quot;", "apos;", "\""},
-                new String[]{"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""});
+        // 20160127 修正完全比對找不到的問題
+        //pnKey = org.apache.commons.lang3.StringUtils.replaceEach(pnKey,
+        //        new String[]{" ", "/", "+", "?", "%", "#", "&", "=", "-", "(", ")", "\'", ".", "quot;", "apos;", "\""},
+        //        new String[]{"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""});
 
         pnKey = pnKey.replace("|", "/"); // 对在页面里将modelname中/转换成|,在此处转换回/
         pnKey = pnKey.replace("<", "");

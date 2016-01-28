@@ -828,17 +828,31 @@ public class FuzzyInstance {
             		sPnReturn.add(tuple.getPn());
             	}
             }
-          
             
-            for(int i=(currentPage - 1) * pageSize; i < currentPage * pageSize; i++)
+            // 20160127 料號預先排序
+    		HashMap<String, Integer> hashPnWeight = FuzzyManagerModel.OrderPn(sPnReturn);
+    		List<IndexResult> sortedIndexResult = SortUtil.SortIndexResultSimple(hashPnWeight, 0);
+    		
+    		for(int i=(currentPage - 1) * pageSize; i < currentPage * pageSize; i++)
             {
-            	if(i<sPnReturn.size())
+            	if(i<sortedIndexResult.size())
             	{
-            		OmList.add(sPnReturn.get(i));
+            		OmList.add(sortedIndexResult.get(i).getPn());
             	}
             }
             
-            nTotalCount = sPnReturn.size();
+            nTotalCount = sortedIndexResult.size();
+          
+            
+            //for(int i=(currentPage - 1) * pageSize; i < currentPage * pageSize; i++)
+            //{
+            //	if(i<sPnReturn.size())
+            //	{
+            //		OmList.add(sPnReturn.get(i));
+            //	}
+            //}
+            
+            //nTotalCount = sPnReturn.size();
         }
         else
         {
