@@ -833,15 +833,19 @@ public class FuzzyInstance {
     		HashMap<String, Integer> hashPnWeight = FuzzyManagerModel.OrderPn(sPnReturn);
     		List<IndexResult> sortedIndexResult = SortUtil.SortIndexResultSimple(hashPnWeight, 0);
     		
-    		for(int i=(currentPage - 1) * pageSize; i < currentPage * pageSize; i++)
-            {
-            	if(i<sortedIndexResult.size())
-            	{
-            		OmList.add(sortedIndexResult.get(i).getPn());
-            	}
-            }
+    		// 20160129 改用深度搜尋的分頁法
+    		for(IndexResult res : sortedIndexResult)
+    			OmList.add(res.getPn());
+    		
+    		//for(int i=(currentPage - 1) * pageSize; i < currentPage * pageSize; i++)
+            //{
+            //	if(i<sortedIndexResult.size())
+            //	{
+            //		OmList.add(sortedIndexResult.get(i).getPn());
+            //	}
+            //}
             
-            nTotalCount = sortedIndexResult.size();
+            //nTotalCount = sortedIndexResult.size();
           
             
             //for(int i=(currentPage - 1) * pageSize; i < currentPage * pageSize; i++)
@@ -910,9 +914,17 @@ public class FuzzyInstance {
         
         OrderManager om = new OrderManager();
         if(nSearchType == 1)	// 以純料號搜尋
-        	result = om.getProductByGroupInStore(OmList);
+        {
+        	//result = om.getProductByGroupInStore(OmList);
+        	
+        	// 20160129 改用深度搜尋的分頁法
+        	result = om.getProductByGroupInStoreDeep(0, 0, 0, null, null, OmList, currentPage, pageSize);
+        }
         else
+        {
         	result = om.getProductByGroupInStoreId(OmList);
+        	result.setTotalCount(nTotalCount);
+        }
         
         watch.getElapseTimeOrderResult(keyQuery, OmList);
 
@@ -920,9 +932,6 @@ public class FuzzyInstance {
         strHighLight = strHighLight.substring(0, strHighLight.length() - 1);
         result.setHighLight(strHighLight);
         
-        result.setTotalCount(nTotalCount);
-        
-
         return result;
 	}
 	

@@ -160,7 +160,7 @@ public class OmSearchLogic {
 		return strSql;
 	}
 	
-	public static int pageCount(List<Product> plist)
+	public static int pageCountId(List<Product> plist)
 	{
     	
     	int product_id = 0;
@@ -181,7 +181,28 @@ public class OmSearchLogic {
     	return gPage + 1;
 	}
 	
-	public static List<Product> pageData(List<Product> plist, int currentPage, 
+	public static int pageCount(List<Product> plist)
+	{
+    	
+    	String product_id = "";
+   
+    	int gPage = -1;
+    	for(Product product : plist)
+    	{
+    		if(!product_id.equalsIgnoreCase(product.getPn()))
+    		{
+    			gPage++;
+
+    			product_id = product.getPn();
+    		}
+    	
+    	}
+    	
+    	
+    	return gPage + 1;
+	}
+	
+	public static List<Product> pageDataId(List<Product> plist, int currentPage, 
 			int pageSize)
 	{
 		List<Product> pageList = new ArrayList<Product> ();
@@ -202,6 +223,51 @@ public class OmSearchLogic {
     			uniqPn.put(gPage, id_product);
     			
     			product_id = product.getId();
+    		}
+    		else
+    		{
+    			List<Product> id_product = uniqPn.get(gPage);
+    			
+    			id_product.add(product);
+    			
+    			uniqPn.put(gPage, id_product);
+    		}
+    	}
+    	
+    	// set area by weight
+    	for(int i=(currentPage - 1) * pageSize; i < currentPage * pageSize; i++)
+        {
+        	if(i<gPage+1)
+        	{
+        		List<Product> pList = uniqPn.get(i);
+        		pageList.addAll(pList);
+        	}
+        }
+    	
+    	return pageList;
+	}
+	
+	public static List<Product> pageData(List<Product> plist, int currentPage, 
+			int pageSize)
+	{
+		List<Product> pageList = new ArrayList<Product> ();
+    	Map<Integer, List<Product>> uniqPn = new HashMap<Integer, List<Product>>();
+    	
+    	String product_id = "";
+   
+    	int gPage = -1;
+    	for(Product product : plist)
+    	{
+    		if(!product_id.equalsIgnoreCase(product.getPn()))
+    		{
+    			gPage++;
+    			
+    			List<Product> id_product = new ArrayList<Product>();
+    			id_product.add(product);
+    			
+    			uniqPn.put(gPage, id_product);
+    			
+    			product_id = product.getPn();
     		}
     		else
     		{

@@ -323,6 +323,7 @@ public class OrderManager {
         result = orderProductList(result);
         result.setTotalCount(OmSearchLogic.pageCount(plist));
         
+        
         attemptClose(om_conn);
 		
 		return result;
