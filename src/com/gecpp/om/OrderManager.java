@@ -30,6 +30,7 @@ import com.gecpp.fm.Dao.MultiKeyword;
 import com.gecpp.fm.Dao.Product;
 import com.gecpp.fm.Logic.OmSearchLogic;
 import com.gecpp.fm.Util.CommonUtil;
+import com.gecpp.fm.Util.SortUtil;
 
 class OrdManaerComparator implements Comparator<String> {
 
@@ -236,7 +237,7 @@ public class OrderManager {
 		if(notRepeatPns == null)
 		{
 			OrderResult result = new OrderResult();
-			LinkedHashMap<String, Map<String, List<Integer>>> returnMap = new LinkedHashMap<String, Map<String, List<Integer>>>();
+			LinkedHashMap<String, LinkedHashMap<String, List<Integer>>> returnMap = new LinkedHashMap<String, LinkedHashMap<String, List<Integer>>>();
 			result.setPidList(returnMap);
 			return result;
 		}
@@ -244,7 +245,7 @@ public class OrderManager {
 		if(notRepeatPns.size() == 0)
 		{
 			OrderResult result = new OrderResult();
-			LinkedHashMap<String, Map<String, List<Integer>>> returnMap = new LinkedHashMap<String, Map<String, List<Integer>>>();
+			LinkedHashMap<String, LinkedHashMap<String, List<Integer>>> returnMap = new LinkedHashMap<String, LinkedHashMap<String, List<Integer>>>();
 			result.setPidList(returnMap);
 			return result;
 		}
@@ -284,7 +285,7 @@ public class OrderManager {
     	if(notRepeatPns == null)
 		{
 			OrderResult result = new OrderResult();
-			LinkedHashMap<String, Map<String, List<Integer>>> returnMap = new LinkedHashMap<String, Map<String, List<Integer>>>();
+			LinkedHashMap<String, LinkedHashMap<String, List<Integer>>> returnMap = new LinkedHashMap<String, LinkedHashMap<String, List<Integer>>>();
 			result.setPidList(returnMap);
 			result.setPns(new String[0]);
 			return result;
@@ -293,7 +294,7 @@ public class OrderManager {
 		if(notRepeatPns.size() == 0)
 		{
 			OrderResult result = new OrderResult();
-			LinkedHashMap<String, Map<String, List<Integer>>> returnMap = new LinkedHashMap<String, Map<String, List<Integer>>>();
+			LinkedHashMap<String, LinkedHashMap<String, List<Integer>>> returnMap = new LinkedHashMap<String, LinkedHashMap<String, List<Integer>>>();
 			result.setPidList(returnMap);
 			result.setPns(new String[0]);
 			return result;
@@ -342,7 +343,7 @@ public class OrderManager {
     	if(notRepeatPns == null)
 		{
 			OrderResult result = new OrderResult();
-			LinkedHashMap<String, Map<String, List<Integer>>> returnMap = new LinkedHashMap<String, Map<String, List<Integer>>>();
+			LinkedHashMap<String, LinkedHashMap<String, List<Integer>>> returnMap = new LinkedHashMap<String, LinkedHashMap<String, List<Integer>>>();
 			result.setPidList(returnMap);
 			return result;
 		}
@@ -350,7 +351,7 @@ public class OrderManager {
 		if(notRepeatPns.size() == 0)
 		{
 			OrderResult result = new OrderResult();
-			LinkedHashMap<String, Map<String, List<Integer>>> returnMap = new LinkedHashMap<String, Map<String, List<Integer>>>();
+			LinkedHashMap<String, LinkedHashMap<String, List<Integer>>> returnMap = new LinkedHashMap<String, LinkedHashMap<String, List<Integer>>>();
 			result.setPidList(returnMap);
 			return result;
 		}
@@ -476,7 +477,7 @@ public class OrderManager {
 		if(notRepeatPns == null)
 		{
 			OrderResult result = new OrderResult();
-			LinkedHashMap<String, Map<String, List<Integer>>> returnMap = new LinkedHashMap<String, Map<String, List<Integer>>>();
+			LinkedHashMap<String, LinkedHashMap<String, List<Integer>>> returnMap = new LinkedHashMap<String, LinkedHashMap<String, List<Integer>>>();
 			result.setPidList(returnMap);
 			return result;
 		}
@@ -484,7 +485,7 @@ public class OrderManager {
 		if(notRepeatPns.size() == 0)
 		{
 			OrderResult result = new OrderResult();
-			LinkedHashMap<String, Map<String, List<Integer>>> returnMap = new LinkedHashMap<String, Map<String, List<Integer>>>();
+			LinkedHashMap<String, LinkedHashMap<String, List<Integer>>> returnMap = new LinkedHashMap<String, LinkedHashMap<String, List<Integer>>>();
 			result.setPidList(returnMap);
 			return result;
 		}
@@ -519,10 +520,13 @@ public class OrderManager {
 		
 		return result;
 	}
+	
+	// 2016/02/16 新增依照製造商排序
+	
 
 	private OrderResult orderProductList(OrderResult result)
     {
-        LinkedHashMap<String, Map<String, List<Integer>>> returnMap = result.getPidList();
+        LinkedHashMap<String, LinkedHashMap<String, List<Integer>>> returnMap = result.getPidList();
         returnMap = sortHashMapByValuesD(returnMap);
 
         result.setPidList(returnMap);
@@ -537,13 +541,13 @@ public class OrderManager {
         return result;
     }
 	
-	private List<Integer> GetPID(LinkedHashMap<String, Map<String, List<Integer>>> passedMap)
+	private List<Integer> GetPID(LinkedHashMap<String, LinkedHashMap<String, List<Integer>>> passedMap)
 	{
 		List<Integer> returnPID = new ArrayList<Integer>();
 		List<String> returnPns = new ArrayList<String>();
 		
 
-        for (Map.Entry<String, Map<String, List<Integer>>> entry : passedMap.entrySet()) {
+        for (Map.Entry<String, LinkedHashMap<String, List<Integer>>> entry : passedMap.entrySet()) {
             String key = entry.getKey();
             
             returnPns.add(key);
@@ -576,14 +580,14 @@ public class OrderManager {
         
 	}
 
-    private LinkedHashMap sortHashMapByValuesD(LinkedHashMap<String, Map<String, List<Integer>>> passedMap) {
+    private LinkedHashMap sortHashMapByValuesD(LinkedHashMap<String, LinkedHashMap<String, List<Integer>>> passedMap) {
 
         // 找各料號下面的項目多寡，多的排前面
         HashMap<String, Integer> PnOrderMap = new HashMap<String, Integer>();
         OrdManaerComparator ovc =  new OrdManaerComparator(PnOrderMap);
         TreeMap<String,Integer> ord_map = new TreeMap<String,Integer>(ovc);
 
-        for (Map.Entry<String, Map<String, List<Integer>>> entry : passedMap.entrySet()) {
+        for (Map.Entry<String, LinkedHashMap<String, List<Integer>>> entry : passedMap.entrySet()) {
             String key = entry.getKey();
             int count = 0;
             Map<String, List<Integer>> value = entry.getValue();
@@ -612,12 +616,12 @@ public class OrderManager {
 
         ord_map.putAll(PnOrderMap);
 
-        LinkedHashMap<String, Map<String, List<Integer>>> returnMap = new LinkedHashMap<String, Map<String, List<Integer>>>();
+        LinkedHashMap<String, LinkedHashMap<String, List<Integer>>> returnMap = new LinkedHashMap<String, LinkedHashMap<String, List<Integer>>>();
 
 
         for(Map.Entry<String,Integer> entry : ord_map.entrySet()) {
 
-            Map<String, List<Integer>> value = passedMap.get(entry.getKey());
+        	LinkedHashMap<String, List<Integer>> value = passedMap.get(entry.getKey());
             
             // 整理一下 id(刪除重複的)
             for(Map.Entry<String, List<Integer>> listentry:value.entrySet()){
@@ -634,7 +638,8 @@ public class OrderManager {
             	listentry.setValue(newList);
             }
 
-            returnMap.put(entry.getKey(), value);
+            // 20160221 order by mfs
+            returnMap.put(entry.getKey(), SortUtil.RegroupIndexResultByMfs(value));
         }
 
         return returnMap;
@@ -781,8 +786,8 @@ public class OrderManager {
 
 	private OrderResult formatFromProductList(List<Product> plist) {
 		OrderResult result = new OrderResult();
-        LinkedHashMap<String, Map<String, List<Product>>> resultMap = new LinkedHashMap<String, Map<String, List<Product>>>();
-        LinkedHashMap<String, Map<String, List<Integer>>> returnMap = new LinkedHashMap<String, Map<String, List<Integer>>>();
+        LinkedHashMap<String, LinkedHashMap<String, List<Product>>> resultMap = new LinkedHashMap<String, LinkedHashMap<String, List<Product>>>();
+        LinkedHashMap<String, LinkedHashMap<String, List<Integer>>> returnMap = new LinkedHashMap<String, LinkedHashMap<String, List<Integer>>>();
 
         Map<Integer, Product> pnProductMap = new HashMap<Integer, Product>();
 
@@ -805,8 +810,8 @@ public class OrderManager {
 
             if (addToListflag) {
 
-                Map<String, List<Product>> mfsGroupMap = resultMap.get(pnkey);
-                Map<String, List<Integer>> mfsGroupMapInt = returnMap.get(pnkey);
+            	LinkedHashMap<String, List<Product>> mfsGroupMap = resultMap.get(pnkey);
+            	LinkedHashMap<String, List<Integer>> mfsGroupMapInt = returnMap.get(pnkey);
                 
                 String mfs = pro.getMfs();
                 if (mfs == null) {

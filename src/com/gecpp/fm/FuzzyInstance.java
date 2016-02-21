@@ -164,9 +164,11 @@ public class FuzzyInstance {
 
     
 	
-	public int DeleteFuzzyRecord(int pid, Connection conn) {
+	public int DeleteFuzzyRecord(int pid) {
 		String strSql = "delete from qeindex where page = " + pid;
 
+		Connection conn = DbHelper.connectFm();
+		
 		execUpdate(strSql, conn);
 		
 		DbHelper.attemptClose(conn);
@@ -1827,7 +1829,7 @@ public class FuzzyInstance {
 		}
 	}
 
-	public int GetMaxIndexID(Connection con) {
+	public int GetMaxIndexID() {
 		// TODO Auto-generated method stub
 		
 		String strSql = "select page from qeindex order by page desc limit 1";
@@ -1836,6 +1838,8 @@ public class FuzzyInstance {
 		
 		try {
 
+			Connection con = DbHelper.connectFm();
+			
 			Statement stmt = null;
 			ResultSet rs = null;
 
@@ -1861,7 +1865,7 @@ public class FuzzyInstance {
 		return pid;
 	}
 
-	public int GetIndexIDStatus(int pid, Connection con) {
+	public int GetIndexIDStatus(int pid) {
 		// TODO Auto-generated method stub
 		
 		String strSql = "select * from qeindex where page = " + pid;
@@ -1870,6 +1874,8 @@ public class FuzzyInstance {
 		
 		try {
 
+			Connection con = DbHelper.connectFm();
+			
 			Statement stmt = null;
 			ResultSet rs = null;
 

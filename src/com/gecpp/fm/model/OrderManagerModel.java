@@ -39,8 +39,8 @@ public class OrderManagerModel {
 		
 		List<String> sList = null;
 		
-		String strSql = "(select pn from pm_supplier_pn where supplier_pn_key like '" + pnKey + "' limit 20) "
-		+ " UNION (SELECT pn FROM pm_pn where pn_key like '" + pnKey + "' limit 20) ORDER BY pn limit 20";
+		String strSql = "(select pn from pm_supplier_pn where supplier_pn_key like '" + pnKey + "' limit 50) "
+		+ " UNION (SELECT pn FROM pm_pn where pn_key like '" + pnKey + "' limit 50) ORDER BY pn limit 50";
 
 		sList = DbHelper.getList(strSql, Site.pm);
 		

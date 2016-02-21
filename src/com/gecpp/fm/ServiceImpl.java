@@ -11,17 +11,21 @@ import com.caucho.hessian.server.HessianServlet;
 
 public class ServiceImpl extends HessianServlet implements IFuzzySearch {
  
-	protected static fuzzysearch fm = null;
+	// 20160218 function deprecated
+	//protected static fuzzysearch fm = null;
 
 	@Override 
 	public void init(ServletConfig config) 
 	{
+		// 20160218 not using connection pool anymore
+		/*
 		if(fm == null)
 		{
 			fm = new fuzzysearch();
 			fm.loadParams();
 			fm.connectPostgrel();
 		}
+		*/
 		
 		try {
 			super.init(config);
@@ -33,9 +37,11 @@ public class ServiceImpl extends HessianServlet implements IFuzzySearch {
 	
 	@Override
 	public int DeleteFuzzyRecord(int pid) {
-		FuzzyInstance fi = new FuzzyInstance();
+		// 20160218 function deprecated
 		
-		return fi.DeleteFuzzyRecord(pid, fm.GetDbConnection());
+		//FuzzyInstance fi = new FuzzyInstance();
+		//return fi.DeleteFuzzyRecord(pid);
+		return -1;
 	}
 
 	@Override
@@ -47,18 +53,22 @@ public class ServiceImpl extends HessianServlet implements IFuzzySearch {
 			String description,
 			String param
 								){
-		FuzzyInstance fi = new FuzzyInstance();
-		return fi.InsertFuzzyRecord(pid, pn, mfs, catalog, description, param, fm.GetDbConnection(), fm.getSegmenter());
+		// 20160218 function deprecated
+		//FuzzyInstance fi = new FuzzyInstance();
+		//return fi.InsertFuzzyRecord(pid, pn, mfs, catalog, description, param, fm.GetDbConnection(), fm.getSegmenter());
+		return -1;
 	}
 
 	@Override
 	public List<String> QueryFuzzyRecord(String fuzzyString) {
 
-		FuzzyInstance fi = new FuzzyInstance();
-		List<String> list = fi.GetQueryByEachWord(fuzzyString, fm.GetDbConnection(), fm.getSegmenter());
-		//List<String> list = fi.GetQuery(fuzzyString, fm.GetDbConnection(), fm.getSegmenter());
-		//list.add(fm.DebugGetQuery(fuzzyString));
-		return list;
+		// 20160218 function deprecated
+		//FuzzyInstance fi = new FuzzyInstance();
+		//List<String> list = fi.GetQueryByEachWord(fuzzyString, fm.GetDbConnection(), fm.getSegmenter());
+		////List<String> list = fi.GetQuery(fuzzyString, fm.GetDbConnection(), fm.getSegmenter());
+		////list.add(fm.DebugGetQuery(fuzzyString));
+		//return list;
+		return null;
 	}
 	
 	@Override
@@ -93,8 +103,9 @@ public class ServiceImpl extends HessianServlet implements IFuzzySearch {
 	public int GetMaxIndexID() {
 		// TODO Auto-generated method stub
 		FuzzyInstance fi = new FuzzyInstance();
-		
-		return fi.GetMaxIndexID(fm.GetDbConnection());
+		// 20160218 function deprecated
+		//return fi.GetMaxIndexID(fm.GetDbConnection());
+		return fi.GetMaxIndexID();
 	}
 
 	@Override
@@ -102,13 +113,14 @@ public class ServiceImpl extends HessianServlet implements IFuzzySearch {
 		// TODO Auto-generated method stub
 		FuzzyInstance fi = new FuzzyInstance();
 		
-		return fi.GetIndexIDStatus(pid, fm.GetDbConnection());
+		return fi.GetIndexIDStatus(pid);
 	}
 	
 	@Override
 	public void destroy()
 	{
-		fm.closePostgrel();
+		// 20160218 function deprecated
+		//fm.closePostgrel();
 		super.destroy();
 	}
 

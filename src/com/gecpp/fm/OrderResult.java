@@ -18,10 +18,10 @@ public class OrderResult implements Serializable  {
 	public void setHighLight(String highLight) {
 		HighLight = highLight;
 	}
-	public LinkedHashMap<String, Map<String, List<Integer>>> getPidList() {
+	public LinkedHashMap<String, LinkedHashMap<String, List<Integer>>> getPidList() {
 		return PidList;
 	}
-	public void setPidList(LinkedHashMap<String, Map<String, List<Integer>>> pidList) {
+	public void setPidList(LinkedHashMap<String, LinkedHashMap<String, List<Integer>>> pidList) {
 		PidList = pidList;
 	}
 	public List<Integer> getIds() {
@@ -42,7 +42,7 @@ public class OrderResult implements Serializable  {
 	
 	private String HighLight;		// 關鍵字，以逗號區分(TI, OP, LM358)
 	
-	private LinkedHashMap<String, Map<String,List<Integer>>>  PidList;	// 結構  (料號, Map<供應商, List<PID>>)
+	private LinkedHashMap<String, LinkedHashMap<String,List<Integer>>>  PidList;	// 結構  (料號, Map<供應商, List<PID>>)
 	
 	private List<Integer> ids;		// 当前页所有产品的id列表(List<PID>)
 	

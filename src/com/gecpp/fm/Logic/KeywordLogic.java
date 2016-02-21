@@ -70,7 +70,11 @@ public class KeywordLogic {
 		
 		// 預先處理
 		if (strInput != null && !strInput.isEmpty())
+		{
+			// 2016/02/16 修正大小寫問題
+			strInput = strInput.toUpperCase();
 			keywordArray = strInput.replaceAll("^[,\\s]+", "").split("[\\s]+");
+		}
 		
 		// 20160114
 		// 處理料號無法搜尋到的問題(因為料號搜尋也跑去增加字典)
@@ -79,7 +83,8 @@ public class KeywordLogic {
 			// 字典分析
 			if (strInput != null && !strInput.isEmpty())
 	        {
-				strInput = strInput.toUpperCase();
+				// 2016/02/16 修正大小寫問題
+				//strInput = strInput.toUpperCase();
 				strInput = TransDict(strInput);
 	        }
 		}
