@@ -12,6 +12,7 @@ import com.gecpp.fm.Dao.IndexShort;
 import com.gecpp.fm.Dao.Keyword;
 import com.gecpp.fm.Dao.MultiKeyword;
 import com.gecpp.fm.Dao.Product;
+import com.gecpp.fm.Dao.Keyword.KeywordKind;
 import com.gecpp.fm.Dao.Keyword.NLP;
 import com.gecpp.fm.Logic.FuzzySearchLogic;
 import com.gecpp.fm.Logic.KeywordLogic;
@@ -586,6 +587,9 @@ public class FuzzyInstance {
         // Fuzzy的結果
         List<IndexResult> fuzzyResult = new ArrayList<IndexResult>();
         
+        // 料號排序的結果
+        List<IndexResult> sortedIndexResult = null;
+        
         // 如果輸入的查詢有問題，回傳空的結果
         if(keyQuery.getCount()== 0)
         {
@@ -596,11 +600,15 @@ public class FuzzyInstance {
         }
         
         // 純料號的方式
-        if (keyQuery.getCount() == 1 && keyQuery.getNlp().get(0).equals(NLP.NotNLP)) {
+        if (keyQuery.getCount() == 1 && keyQuery.getKind().get(0).equals(KeywordKind.IsPn)) {
         	// 計時
         	StopWatch watch = new StopWatch("PmSearch");
         	
         	pnList = PmSearchLogic.PmSearch(keyQuery);
+        	
+        	// 20160223 料號預先排序應該只限於排序料號
+        	HashMap<String, Integer> hashPnWeight = FuzzyManagerModel.OrderPn(pnList);
+    		sortedIndexResult = SortUtil.SortIndexResultSimple(hashPnWeight, 0);
         	
         	watch.getElapseTime(keyQuery, pnList);
         	
@@ -625,22 +633,26 @@ public class FuzzyInstance {
         	
         }
         
-        // 不夠的再由FuzzySearch補充
-        if(pnList.size() + redisResult.size() < 50)
+     // 20160223 for more percisely pn search
+        if(pnList.size() == 0)
         {
-        	StopWatch watch = new StopWatch("FuzzySearch");
-        	if(nSearchType == 1)	// 以純料號搜尋
-        		fuzzyResult = FuzzySearchLogic.getFuzzySearch(keyQuery);
-        	else
-        	{
-        		fuzzyResult = FuzzySearchLogic.getFuzzySearchId(keyQuery);
-        		// reorder 
-        		//redisResult = SortUtil.RegroupIndexResult(redisResult, fuzzyResult);
-        		// 直接加在下面
-        		redisResult.addAll(fuzzyResult);
-        	}
-        	
-        	watch.getElapseTimeIndexResult(keyQuery, fuzzyResult);
+	        // 不夠的再由FuzzySearch補充
+	        if(pnList.size() + redisResult.size() < 50)
+	        {
+	        	StopWatch watch = new StopWatch("FuzzySearch");
+	        	if(nSearchType == 1)	// 以純料號搜尋
+	        		fuzzyResult = FuzzySearchLogic.getFuzzySearch(keyQuery);
+	        	else
+	        	{
+	        		fuzzyResult = FuzzySearchLogic.getFuzzySearchId(keyQuery);
+	        		// reorder 
+	        		//redisResult = SortUtil.RegroupIndexResult(redisResult, fuzzyResult);
+	        		// 直接加在下面
+	        		redisResult.addAll(fuzzyResult);
+	        	}
+	        	
+	        	watch.getElapseTimeIndexResult(keyQuery, fuzzyResult);
+	        }
         }
         
         
@@ -658,11 +670,12 @@ public class FuzzyInstance {
             List<String> sPnReturn = new ArrayList<String>();
             
             // 純料號的先
-            for(String pn : pnList)
+            for(IndexResult res : sortedIndexResult)
             {
-            	uniqPn.put(pn, 1);
+            	uniqPn.put(res.getPn(), 1);
+            	sPnReturn.add(res.getPn());
             }
-            sPnReturn.addAll(pnList);
+            //sPnReturn.addAll(pnList);
             
             // FuzzySearch
             for(IndexResult tuple : fuzzyResult)
@@ -743,6 +756,8 @@ public class FuzzyInstance {
         List<IndexResult> redisResult = new ArrayList<IndexResult>();
         // Fuzzy的結果
         List<IndexResult> fuzzyResult = new ArrayList<IndexResult>();
+        // 料號排序的結果
+        List<IndexResult> sortedIndexResult = null;
         
         // 如果輸入的查詢有問題，回傳空的結果
         if(keyQuery.getCount()== 0)
@@ -753,11 +768,15 @@ public class FuzzyInstance {
         }
         
         // 純料號的方式
-        if (keyQuery.getCount() == 1 && keyQuery.getNlp().get(0).equals(NLP.NotNLP)) {
+        if (keyQuery.getCount() == 1 && keyQuery.getKind().get(0).equals(KeywordKind.IsPn)) {
         	// 計時
         	StopWatch watch = new StopWatch("PmSearch");
         	
         	pnList = PmSearchLogic.PmSearch(keyQuery);
+        	
+        	// 20160223 料號預先排序應該只限於排序料號
+        	HashMap<String, Integer> hashPnWeight = FuzzyManagerModel.OrderPn(pnList);
+    		sortedIndexResult = SortUtil.SortIndexResultSimple(hashPnWeight, 0);
         	
         	watch.getElapseTime(keyQuery, pnList);
         	
@@ -782,22 +801,26 @@ public class FuzzyInstance {
         	
         }
         
-        // 不夠的再由FuzzySearch補充
-        if(pnList.size() + redisResult.size() < 50)
+        // 20160223 for more percisely pn search
+        if(pnList.size() == 0)
         {
-        	StopWatch watch = new StopWatch("FuzzySearch");
-        	if(nSearchType == 1)	// 以純料號搜尋
-        		fuzzyResult = FuzzySearchLogic.getFuzzySearch(keyQuery);
-        	else
-        	{
-        		fuzzyResult = FuzzySearchLogic.getFuzzySearchId(keyQuery);
-        		// reorder 
-        		//redisResult = SortUtil.RegroupIndexResult(redisResult, fuzzyResult);
-        		// 直接加在下面
-        		redisResult.addAll(fuzzyResult);
-        	}
-        	
-        	watch.getElapseTimeIndexResult(keyQuery, fuzzyResult);
+	        // 不夠的再由FuzzySearch補充
+	        if(pnList.size() + redisResult.size() < 50)
+	        {
+	        	StopWatch watch = new StopWatch("FuzzySearch");
+	        	if(nSearchType == 1)	// 以純料號搜尋
+	        		fuzzyResult = FuzzySearchLogic.getFuzzySearch(keyQuery);
+	        	else
+	        	{
+	        		fuzzyResult = FuzzySearchLogic.getFuzzySearchId(keyQuery);
+	        		// reorder 
+	        		//redisResult = SortUtil.RegroupIndexResult(redisResult, fuzzyResult);
+	        		// 直接加在下面
+	        		redisResult.addAll(fuzzyResult);
+	        	}
+	        	
+	        	watch.getElapseTimeIndexResult(keyQuery, fuzzyResult);
+	        }
         }
         
         
@@ -815,11 +838,12 @@ public class FuzzyInstance {
             List<String> sPnReturn = new ArrayList<String>();
             
             // 純料號的先
-            for(String pn : pnList)
+            for(IndexResult res : sortedIndexResult)
             {
-            	uniqPn.put(pn, 1);
+            	uniqPn.put(res.getPn(), 1);
+            	sPnReturn.add(res.getPn());
             }
-            sPnReturn.addAll(pnList);
+            //sPnReturn.addAll(pnList);
             
             // FuzzySearch
             for(IndexResult tuple : fuzzyResult)
@@ -831,13 +855,13 @@ public class FuzzyInstance {
             	}
             }
             
-            // 20160127 料號預先排序
-    		HashMap<String, Integer> hashPnWeight = FuzzyManagerModel.OrderPn(sPnReturn);
-    		List<IndexResult> sortedIndexResult = SortUtil.SortIndexResultSimple(hashPnWeight, 0);
+            //// 20160127 料號預先排序
+    		//HashMap<String, Integer> hashPnWeight = FuzzyManagerModel.OrderPn(sPnReturn);
+    		//List<IndexResult> sortedIndexResult = SortUtil.SortIndexResultSimple(hashPnWeight, 0);
     		
     		// 20160129 改用深度搜尋的分頁法
-    		for(IndexResult res : sortedIndexResult)
-    			OmList.add(res.getPn());
+    		//for(IndexResult res : sortedIndexResult)
+    		OmList.addAll(sPnReturn);
     		
     		//for(int i=(currentPage - 1) * pageSize; i < currentPage * pageSize; i++)
             //{
@@ -865,52 +889,71 @@ public class FuzzyInstance {
         	List<String> pageList = new ArrayList<String> ();
         	Map<Integer, List<String>> pageMap = new HashMap<Integer, List<String>>();
         	
-        	int gPage = 0;
-        	int gWeight = 0;
+        	int nCount = 0;
+
         	for(IndexResult tuple : redisResult)
         	{
-        		if(!uniqPn.containsKey(tuple.getPn()))
-            	{
-        			pageList.add(tuple.getPn());
-        			
-            		uniqPn.put(tuple.getPn(), 1);
-            		
-            		
-            		if(gWeight != tuple.getWeight())
-            		{
-        				if(gPage > 0)
-        				{
-        					pageMap.put(gPage - 1, pageList);
-        					
-        					pageList = new ArrayList<String> ();
-        				}
-        				
-        				gPage++;
-        				gWeight = tuple.getWeight();
-            		}
-            	}
-        	}
-        	// do it again
-        	if(redisResult.size() > 0)
-        	{
-        		pageMap.put(gPage - 1, pageList);
-
+        		OmList.add(tuple.getPn());
+        		
+        		nCount++;
+        		
+        		// 先取500筆以上即可
+            	if(nCount > 500)
+            		break;
         	}
         	
-        	int aPage = 0;
-        	// set area by weight
-        	for(int i=(currentPage - 1) * pageSize; i < currentPage * pageSize; i++)
-            {
-            	if(i<gPage)
-            	{
-            		List<String> pList = pageMap.get(i);
-            		OmList.addAll(pList);
-            	}
-            }
-        	
-        	nTotalCount = gPage;
         }
-    
+//        20160304 fix paging bug 
+//        {
+//        	List<String> pageList = new ArrayList<String> ();
+//        	Map<Integer, List<String>> pageMap = new HashMap<Integer, List<String>>();
+//        	
+//        	int gPage = 0;
+//        	int gWeight = 0;
+//        	for(IndexResult tuple : redisResult)
+//        	{
+//        		if(!uniqPn.containsKey(tuple.getPn()))
+//            	{
+//        			pageList.add(tuple.getPn());
+//        			
+//            		uniqPn.put(tuple.getPn(), 1);
+//            		
+//            		
+//            		if(gWeight != tuple.getWeight())
+//            		{
+//        				if(gPage > 0)
+//        				{
+//        					pageMap.put(gPage - 1, pageList);
+//        					
+//        					pageList = new ArrayList<String> ();
+//        				}
+//        				
+//        				gPage++;
+//        				gWeight = tuple.getWeight();
+//            		}
+//            	}
+//        	}
+//        	// do it again
+//        	if(redisResult.size() > 0)
+//        	{
+//        		pageMap.put(gPage - 1, pageList);
+//
+//        	}
+//        	
+//        	int aPage = 0;
+//        	// set area by weight
+//        	for(int i=(currentPage - 1) * pageSize; i < currentPage * pageSize; i++)
+//            {
+//            	if(i<gPage)
+//            	{
+//            		List<String> pList = pageMap.get(i);
+//            		OmList.addAll(pList);
+//            	}
+//            }
+//        	
+//        	nTotalCount = gPage;
+//        }
+    	
    
         StopWatch watch = new StopWatch("OrderManager");
         
@@ -923,10 +966,12 @@ public class FuzzyInstance {
         	result = om.getProductByGroupInStoreDeep(0, 0, 0, null, null, OmList, currentPage, pageSize);
         }
         else
-        {
-        	result = om.getProductByGroupInStoreId(OmList);
-        	result.setTotalCount(nTotalCount);
-        }
+        	result = om.getProductByGroupInStoreIdDeep(0, 0, 0, null, null, OmList, currentPage, pageSize);
+//          20160304 fix paging bug 
+//        {
+//        	result = om.getProductByGroupInStoreId(OmList);
+//        	result.setTotalCount(nTotalCount);
+//        }
         
         watch.getElapseTimeOrderResult(keyQuery, OmList);
 

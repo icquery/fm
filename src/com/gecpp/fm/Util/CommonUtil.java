@@ -211,4 +211,18 @@ public class CommonUtil {
 
     }
 	
+	public static boolean IsNumeric(String strIn)
+	{
+		 try
+		 {
+			 double d = Double.parseDouble(strIn);
+		 }
+		 catch(NumberFormatException e)
+		 {
+			 return false;
+		 }
+		 
+		 return true;
+	}
+	
 }
