@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -471,6 +472,29 @@ public class OrderManager {
 		
 		return notRepeatPns;
 	}
+    
+ // 20160112 多料號搜尋
+    public List<Product> getProductByMultiRedis(String pn) {
+		
+		
+		
+		loadParams();
+		
+		connectPostgrel();
+		
+		
+		List<Product> pkey = new ArrayList<>();
+        String s = pn;
+            
+        String pnkey = CommonUtil.parsePnKeyNoLike(s);
+ 
+        pkey = getAllInforByPnMulti(pnkey);
+            
+        
+        attemptClose(om_conn);
+		
+		return pkey;
+	}
 
 	public OrderResult getProductByGroupInStore(List<String> notRepeatPns) {
 		
@@ -601,13 +625,10 @@ public class OrderManager {
                 //System.out.println("    " + subkey + ":");
 
                 List<Integer> subvalue = subentry.getValue();
+                
+                Set<Integer> foo = new HashSet<Integer>(subvalue);
 
-                for(Integer listvalue:subvalue)
-                {
-                    //System.out.println("        " + listvalue);
-
-                    count++;
-                }
+                count += foo.size();
             }
 
             PnOrderMap.put(key, count);
@@ -650,10 +671,11 @@ public class OrderManager {
     {
     	QueryResult result = new QueryResult();
     	
+    	/*
     	LinkedHashMap<String, Map<String, List<Integer>>> returnMapMfs1 = new LinkedHashMap<String, Map<String, List<Integer>>>();
     	LinkedHashMap<String, Map<String, List<Integer>>> returnMapMfs2 = new LinkedHashMap<String, Map<String, List<Integer>>>();
     	LinkedHashMap<String, Map<String, List<Integer>>> returnMapMfs3 = new LinkedHashMap<String, Map<String, List<Integer>>>();
-    	
+   
     	LinkedHashMap<String, Map<String, List<Integer>>> returnMapSupplier1 = new LinkedHashMap<String, Map<String, List<Integer>>>();
     	LinkedHashMap<String, Map<String, List<Integer>>> returnMapSupplier2 = new LinkedHashMap<String, Map<String, List<Integer>>>();
     	LinkedHashMap<String, Map<String, List<Integer>>> returnMapSupplier3 = new LinkedHashMap<String, Map<String, List<Integer>>>();
@@ -665,6 +687,17 @@ public class OrderManager {
     	result.setPidListGroupSupplier1(returnMapSupplier1);
     	result.setPidListGroupSupplier2(returnMapSupplier2);
     	result.setPidListGroupSupplier3(returnMapSupplier3);
+    	*/
+    	
+    	
+    	LinkedHashMap<String, Map<String, Map<Integer, List<Integer>>>> returnMapMfs1 = new LinkedHashMap<String, Map<String, Map<Integer, List<Integer>>>>();
+    	LinkedHashMap<String, Map<String, Map<Integer, List<Integer>>>> returnMapMfs2 = new LinkedHashMap<String, Map<String, Map<Integer, List<Integer>>>>();
+    	LinkedHashMap<String, Map<String, Map<Integer, List<Integer>>>> returnMapMfs3 = new LinkedHashMap<String, Map<String, Map<Integer, List<Integer>>>>();
+   
+    	result.setPidListGroupMfs1(returnMapMfs1);
+    	result.setPidListGroupMfs2(returnMapMfs2);
+    	result.setPidListGroupMfs3(returnMapMfs3);
+    	
     	
     	for(MultiKeyword key : notRepeatPns)
     	{
@@ -681,41 +714,94 @@ public class OrderManager {
     			for(Product product :plist)
     			{
     				//Map<String, String> res = CommonUtil.ParsePrice(product.getPrice());
-    				
-    				if(product.getInventory() >= amount )
+    				// 2016/03/14  也需有價格資訊
+    				if(product.getInventory() >= amount && product.getPrice() != "" && product.getPrice() != null)
     					newList.add(product);
     			}
     			
     			// 符合庫存
     			if(newList.size() > 0)
     			{
-    				returnMapMfs1.put(pn, formatMapFromProductListMfs(pn, newList));
-    				returnMapSupplier1.put(pn, formatMapFromProductListSupplier(pn, newList));
+    				//returnMapMfs1.put(pn, formatMapFromProductListMfs(pn, newList));
+    				//returnMapSupplier1.put(pn, formatMapFromProductListSupplier(pn, newList));
+    				returnMapMfs1.put(pn, formatMapFromProductListMfsSupplier(pn, newList));
     			}
     			else	// 部分匹配
     			{
-    				returnMapMfs2.put(pn, formatMapFromProductListMfs(pn, plist));
-    				returnMapSupplier2.put(pn, formatMapFromProductListSupplier(pn, plist));
+    				//returnMapMfs2.put(pn, formatMapFromProductListMfs(pn, plist));
+    				//returnMapSupplier2.put(pn, formatMapFromProductListSupplier(pn, plist));
+    				returnMapMfs2.put(pn, formatMapFromProductListMfsSupplier(pn, plist));
     			}
     		}
     		
     		// 料號不符，部分匹配
     		if(key.getSearchtype() == 2)
     		{
-    			returnMapMfs2.put(pn, formatMapFromProductListMfs(pn, plist));
-    			returnMapSupplier2.put(pn, formatMapFromProductListSupplier(pn, plist));
+    			//returnMapMfs2.put(pn, formatMapFromProductListMfs(pn, plist));
+    			//returnMapSupplier2.put(pn, formatMapFromProductListSupplier(pn, plist));
+    			returnMapMfs2.put(pn, formatMapFromProductListMfsSupplier(pn, plist));
     		}
     		
     		// 完全不匹配 
-    		if(key.getSearchtype() == 0)
+    		if(key.getSearchtype() == 0 || key.getSearchtype() == 3)
     		{
-    			returnMapMfs3.put(pn, formatMapFromProductListMfs(pn, plist));
-    			returnMapSupplier3.put(pn, formatMapFromProductListSupplier(pn, plist));
+    			//returnMapMfs3.put(pn, formatMapFromProductListMfs(pn, plist));
+    			//returnMapSupplier3.put(pn, formatMapFromProductListSupplier(pn, plist));
+    			returnMapMfs3.put(pn, formatMapFromProductListMfsSupplier(pn, plist));
     		}
     		
     	}
     	
     	return result;
+    }
+    
+    // 20160415 多料號搜尋(Leo更改規格 to Map<pn,Map<mfs,Map<supplier_id,List<pid>>>>)
+    private Map<String, Map<Integer, List<Integer>>> formatMapFromProductListMfsSupplier(String pnkey, List<Product> plist) {
+    	
+    	Map<String, Map<Integer, List<Integer>>> mfsGroupMapInt = new  LinkedHashMap<String, Map<Integer, List<Integer>>>();
+    
+    	for (Product pro : plist) {
+    		
+    		String mfs = pro.getMfs();
+    		Integer supplier_id = pro.getSupplierid();
+
+    		if (mfs != null && mfs.trim().length() > 0) {
+
+                if(mfsGroupMapInt == null) {
+                	mfsGroupMapInt = new LinkedHashMap<String, Map<Integer, List<Integer>>>();
+                	
+                }
+                
+                Map<Integer, List<Integer>> supplierMap = mfsGroupMapInt.get(mfs);
+                if (supplierMap == null) {
+                	supplierMap = new HashMap<Integer, List<Integer>>();
+                	mfsGroupMapInt.put(mfs, supplierMap);
+                }
+                
+                List<Integer> idlist = supplierMap.get(supplier_id);
+                if(idlist == null)
+                {
+                	idlist = new ArrayList<Integer>();
+                	supplierMap.put(supplier_id, idlist);
+                }
+            
+                boolean existFlat = false;
+                for (Integer id : idlist) {
+                    int productId = pro.getId();
+                    
+                    if (productId == id) {
+                        existFlat = true;
+                        break;
+                    }
+                }
+                //add if not exist
+                if (!existFlat) 
+                	idlist.add(pro.getId());
+                
+            }
+    	}
+    	
+    	return mfsGroupMapInt;
     }
     
     // 20160112 多料號搜尋
@@ -782,6 +868,112 @@ public class OrderManager {
     	}
     	
     	return mfsGroupMapInt;
+    }
+    
+    private List<Product> orderFromProductList(List<Product> plist) {
+		OrderResult result = new OrderResult();
+		// 20160407 以supplier數量排序  
+		//儲存supplier數量
+        LinkedHashMap<String, LinkedHashMap<String, List<Integer>>> supplierMap = new LinkedHashMap<String, LinkedHashMap<String, List<Integer>>>();
+        LinkedHashMap<String, LinkedHashMap<String, List<Product>>> returnMap = new LinkedHashMap<String, LinkedHashMap<String, List<Product>>>();
+        List<Product> orderReturnList = new ArrayList<Product>();
+
+        Map<Integer, Product> pnProductMap = new HashMap<Integer, Product>();
+
+        LinkedHashMap<String, String> pnMap = new LinkedHashMap<String, String>();
+
+//        List<Product> needUpdatedProducts = new ArrayList<>();
+     // 根据pn进行存储
+        for (Product pro : plist) {
+            String pnkey = pro.getPn();
+            if (pnMap.get(pnkey) == null) {
+                pnMap.put(pnkey, pnkey);
+                
+            }
+
+            Integer id = pro.getId();
+            boolean addToListflag = true;
+
+            pnProductMap.put(id, pro);
+
+
+            if (addToListflag) {
+
+            	LinkedHashMap<String, List<Integer>> groupSupplierMap = supplierMap.get(pnkey);
+            	LinkedHashMap<String, List<Product>> mfsGroupMapInt = returnMap.get(pnkey);
+                
+                String mfs = pro.getMfs();
+                if (mfs == null) {
+                    mfs = pro.getMfs();
+                }
+
+                if (mfs != null && mfs.trim().length() > 0) {
+                    if (groupSupplierMap == null) {
+                    	groupSupplierMap = new LinkedHashMap<String, List<Integer>>();
+                        supplierMap.put(pnkey, groupSupplierMap);
+                    }
+                    
+                    if(mfsGroupMapInt == null) {
+                    	mfsGroupMapInt = new LinkedHashMap<String, List<Product>>();
+                    	returnMap.put(pnkey, mfsGroupMapInt);
+                    }
+
+                    List<Integer> listSupplier = groupSupplierMap.get(mfs);
+                    if (listSupplier == null) {
+                    	listSupplier = new ArrayList<Integer>();
+                        groupSupplierMap.put(mfs, listSupplier);
+                    }
+                    
+                    List<Product> listInt = mfsGroupMapInt.get(mfs);
+                    if (listInt == null) {
+                    	listInt = new ArrayList<Product>();
+                    	mfsGroupMapInt.put(mfs, listInt);
+                    }
+                
+                    boolean addSupplier = true;
+                    for(Integer supplierId : listSupplier)
+                    {
+                    	//if(supplierId == pro.getSupplierid())
+                    	if(supplierId == pro.getId())
+                    	{
+                    		addSupplier = false;
+                    		break;
+                    	}
+                    }
+                    if(addSupplier)
+                    {
+                    	//listSupplier.add(pro.getSupplierid());
+                    	listSupplier.add(pro.getId());
+                    }
+                    
+                    listInt.add(pro);
+                }
+            }
+
+        }
+        
+        supplierMap = sortHashMapByValuesD(supplierMap);
+        
+        // ReOrder returnMap by supplier order
+        for (Map.Entry<String, LinkedHashMap<String, List<Integer>>> entry : supplierMap.entrySet()) {
+            String key = entry.getKey();
+          
+            Map<String, List<Product>> value = returnMap.get(key);
+
+
+            for(Map.Entry<String, List<Product>> subentry : value.entrySet())
+            {
+                String subkey = subentry.getKey();
+
+  
+                List<Product> subvalue = subentry.getValue();
+
+                orderReturnList.addAll(subvalue);
+                
+            }
+        }
+
+        return orderReturnList;
     }
 
 	private OrderResult formatFromProductList(List<Product> plist) {
@@ -1001,7 +1193,10 @@ public class OrderManager {
 	    return true;
 	}
 	
+	// 20160416 deprecated
 	private List<Product> dealWithWebPListRepeat(List<Product> productList) {
+		
+		/*
         List<Product> resultProductList = new ArrayList<>();
 
         Map<String, List<Product>> productMap = new HashMap<>();
@@ -1047,6 +1242,8 @@ public class OrderManager {
         }
 
         return resultProductList;
+        */
+		return orderFromProductList(productList);
     }
 	
 	

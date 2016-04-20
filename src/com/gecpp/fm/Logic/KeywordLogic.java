@@ -32,11 +32,17 @@ public class KeywordLogic {
         {
 			for(String str : strInput)
 			{
-				String [] split = str.split(",");
+				// 2016/03/14  修正大小寫問題
+				str = str.toUpperCase();
+				// 2016/04/05 以五個_分隔
+				String [] split = str.split("_____");
+				//String [] split = str.split(",");
 				
 				MultiKeyword key = new MultiKeyword(); 
 				String pn;
-				int amount = 0;
+				
+				// 2016/03/29  完全滿足需>0
+				int amount = 1;
 				
 				if(split.length > 1)
 				{

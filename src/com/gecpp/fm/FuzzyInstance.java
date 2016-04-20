@@ -1946,11 +1946,13 @@ public class FuzzyInstance {
 		return Status;
 	}
 	
+	// 20160415 多料號搜尋(Leo更改規格 to Map<pn,Map<mfs,Map<supplier_id,List<pid>>>>)
 	public QueryResult QueryProductByMultipleSearch(String[] parts)
 	{
 		// 回傳值
         QueryResult result = new QueryResult();
         
+        /*
         LinkedHashMap<String, Map<String, List<Integer>>> resultMapMfs1 = new LinkedHashMap<String, Map<String, List<Integer>>>();
         LinkedHashMap<String, Map<String, List<Integer>>> resultMapMfs2 = new LinkedHashMap<String, Map<String, List<Integer>>>();
         LinkedHashMap<String, Map<String, List<Integer>>> resultMapMfs3 = new LinkedHashMap<String, Map<String, List<Integer>>>();
@@ -1966,6 +1968,18 @@ public class FuzzyInstance {
         result.setPidListGroupSupplier1(resultMapSupplier1);
         result.setPidListGroupSupplier2(resultMapSupplier2);
         result.setPidListGroupSupplier3(resultMapSupplier3);
+        */
+        
+        
+        LinkedHashMap<String, Map<String, Map<Integer, List<Integer>>>> returnMapMfs1 = new LinkedHashMap<String, Map<String, Map<Integer, List<Integer>>>>();
+    	LinkedHashMap<String, Map<String, Map<Integer, List<Integer>>>> returnMapMfs2 = new LinkedHashMap<String, Map<String, Map<Integer, List<Integer>>>>();
+    	LinkedHashMap<String, Map<String, Map<Integer, List<Integer>>>> returnMapMfs3 = new LinkedHashMap<String, Map<String, Map<Integer, List<Integer>>>>();
+   
+    	result.setPidListGroupMfs1(returnMapMfs1);
+    	result.setPidListGroupMfs2(returnMapMfs2);
+    	result.setPidListGroupMfs3(returnMapMfs3);
+    	
+    	
      
         // 用何種方式搜索
         int nSearchType = 0;
@@ -1984,6 +1998,9 @@ public class FuzzyInstance {
         
         // 再查詢非完全匹配的
         keyQuery = PmSearchLogic.PmSearchMultiLike(keyQuery);
+        
+        // 再查詢完全不匹配的
+        keyQuery = RedisSearchLogic.RedisSearchMulti(keyQuery);
         
         // 決定誰該
         OrderManager om = new OrderManager();
