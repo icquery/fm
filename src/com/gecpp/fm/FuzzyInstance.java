@@ -18,6 +18,7 @@ import com.gecpp.fm.Logic.FuzzySearchLogic;
 import com.gecpp.fm.Logic.KeywordLogic;
 import com.gecpp.fm.Logic.PmSearchLogic;
 import com.gecpp.fm.Logic.RedisSearchLogic;
+import com.gecpp.fm.Util.CommonUtil;
 import com.gecpp.fm.Util.DbHelper;
 import com.gecpp.fm.Util.LogQueryHistory;
 import com.gecpp.fm.Util.SortUtil;
@@ -903,6 +904,8 @@ public class FuzzyInstance {
         	}
         	
         }
+        
+        OmList = CommonUtil.removeSpaceList(OmList);
 //        20160304 fix paging bug 
 //        {
 //        	List<String> pageList = new ArrayList<String> ();
@@ -1971,9 +1974,9 @@ public class FuzzyInstance {
         */
         
         
-        LinkedHashMap<String, Map<String, Map<Integer, List<Integer>>>> returnMapMfs1 = new LinkedHashMap<String, Map<String, Map<Integer, List<Integer>>>>();
-    	LinkedHashMap<String, Map<String, Map<Integer, List<Integer>>>> returnMapMfs2 = new LinkedHashMap<String, Map<String, Map<Integer, List<Integer>>>>();
-    	LinkedHashMap<String, Map<String, Map<Integer, List<Integer>>>> returnMapMfs3 = new LinkedHashMap<String, Map<String, Map<Integer, List<Integer>>>>();
+        LinkedHashMap<String, Map<String, Map<Integer, Integer>>> returnMapMfs1 = new LinkedHashMap<String, Map<String, Map<Integer, Integer>>>();
+    	LinkedHashMap<String, Map<String, Map<Integer, Integer>>> returnMapMfs2 = new LinkedHashMap<String, Map<String, Map<Integer, Integer>>>();
+    	LinkedHashMap<String, Map<String, Map<Integer, Integer>>> returnMapMfs3 = new LinkedHashMap<String, Map<String, Map<Integer, Integer>>>();
    
     	result.setPidListGroupMfs1(returnMapMfs1);
     	result.setPidListGroupMfs2(returnMapMfs2);
@@ -1986,6 +1989,90 @@ public class FuzzyInstance {
         
         // 分析輸入的查詢
         ArrayList<MultiKeyword> keyQuery = KeywordLogic.GetAnalyzedKeywords(parts);
+     
+        
+        // 如果輸入的查詢有問題，回傳空的結果
+        if(keyQuery.size()== 0)
+        {
+        	return result;
+        }
+        // 先用pm搜尋
+        keyQuery = PmSearchLogic.PmSearchMulti(keyQuery);
+        
+        // 再查詢非完全匹配的
+        keyQuery = PmSearchLogic.PmSearchMultiLike(keyQuery);
+        
+        // 再查詢完全不匹配的
+        keyQuery = RedisSearchLogic.RedisSearchMulti(keyQuery);
+        
+        // 決定誰該
+        OrderManager om = new OrderManager();
+        
+        result = om.formatFromMultiKeyword(keyQuery);
+        
+		return result;
+	}
+
+	// 20160517 搜尋參數
+		public Map<String,Map<String,MultipleParam>> QueryParamterByMultipleSearch(String[] parts)
+		{
+			// 回傳值
+			Map<String,Map<String,MultipleParam>> result = new HashMap<String,Map<String,MultipleParam>>();
+	        
+	   
+	     
+	        // 用何種方式搜索
+	        int nSearchType = 0;
+	        
+	        // 分析輸入的查詢
+	        ArrayList<MultiKeyword> keyQuery = KeywordLogic.GetAnalyzedKeywords(parts);
+	     
+	        
+	        // 如果輸入的查詢有問題，回傳空的結果
+	        if(keyQuery.size()== 0)
+	        {
+	        	return result;
+	        }
+	        // 先用pm搜尋
+	        keyQuery = PmSearchLogic.PmSearchMulti(keyQuery);
+	        
+	        // 再查詢非完全匹配的
+	        keyQuery = PmSearchLogic.PmSearchMultiLike(keyQuery);
+	        
+	        // 再查詢完全不匹配的
+	        keyQuery = RedisSearchLogic.RedisSearchMulti(keyQuery);
+	        
+	        // 決定誰該
+	        OrderManager om = new OrderManager();
+	        
+	        result = om.formatParamMultiKeyword(keyQuery);
+	        
+			return result;
+		}
+
+
+	public QueryResult QueryProductByMultipleSearchJson(String parts) {
+		// 回傳值
+        QueryResult result = new QueryResult();
+        
+     
+        
+        
+        LinkedHashMap<String, Map<String, Map<Integer, Integer>>> returnMapMfs1 = new LinkedHashMap<String, Map<String, Map<Integer, Integer>>>();
+    	LinkedHashMap<String, Map<String, Map<Integer, Integer>>> returnMapMfs2 = new LinkedHashMap<String, Map<String, Map<Integer, Integer>>>();
+    	LinkedHashMap<String, Map<String, Map<Integer, Integer>>> returnMapMfs3 = new LinkedHashMap<String, Map<String, Map<Integer, Integer>>>();
+   
+    	result.setPidListGroupMfs1(returnMapMfs1);
+    	result.setPidListGroupMfs2(returnMapMfs2);
+    	result.setPidListGroupMfs3(returnMapMfs3);
+    	
+    	
+     
+        // 用何種方式搜索
+        int nSearchType = 0;
+        
+        // 分析輸入的查詢
+        ArrayList<MultiKeyword> keyQuery = KeywordLogic.GetAnalyzedKeywordsJson(parts);
      
         
         // 如果輸入的查詢有問題，回傳空的結果

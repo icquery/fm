@@ -31,8 +31,36 @@ public class MultiKeyword {
 		this.searchtype = searchtype;
 	}
 
+	/**
+	 * @return the mfs
+	 */
+	public String getMfs() {
+		return mfs;
+	}
+	/**
+	 * @param mfs the mfs to set
+	 */
+	public void setMfs(String mfs) {
+		this.mfs = mfs;
+	}
+
+	/**
+	 * @return the pkg
+	 */
+	public String getPkg() {
+		return pkg;
+	}
+	/**
+	 * @param pkg the pkg to set
+	 */
+	public void setPkg(String pkg) {
+		this.pkg = pkg;
+	}
+
 	private int count;
 	private String keyword;
+	private String mfs;
+	private String pkg;
 	private List<Product> pkey;
 	private int searchtype;
 

@@ -1,6 +1,9 @@
 package com.gecpp.fm.Logic;
 
 import java.sql.Connection;
+
+import org.json.*;
+
 import java.util.UUID;
 import java.sql.ResultSet;
 import java.sql.Statement;
@@ -23,6 +26,98 @@ public class KeywordLogic {
 	
 	private static String strSkipWord = ", . ; + - | / \\ ' \" : ? < > [ ] { } ! @ # $ % ^ & * ( ) ~ ` _ － ‐ ， （ ）";
 	private static String[] SkipWord = null;
+	
+	
+	public static ArrayList<MultiKeyword> GetAnalyzedKeywordsJson(String strInput)
+	{
+		ArrayList<MultiKeyword> keywords = new ArrayList<MultiKeyword>();
+		
+		if (strInput != null && strInput.length() != 0)
+        {
+			
+			String json = "{\"results\":" + strInput + "}";
+			
+			JSONObject obj = null;
+			JSONArray array = null;
+			
+			try {
+				obj = new JSONObject(json);
+				array = obj.getJSONArray("results");
+				
+			} catch (JSONException e1) {
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+			}
+			
+			String price = "";
+			for (int i = 0; i < array.length(); i++) {
+				
+                JSONObject row = null;
+                
+				try {
+					row = array.getJSONObject(i);
+				} catch (JSONException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				}
+              
+				MultiKeyword key = new MultiKeyword(); 
+				
+				String pn = "";
+				String mfs = "";
+				String pkg = "";
+				
+				// 2016/03/29  完全滿足需>0
+				int amount = 1;
+
+				try
+				{
+					pn = row.getString("pn");
+				}
+				catch (Exception e)
+				{
+					System.out.print(e.getMessage());
+				}
+				
+				try
+				{
+					mfs = row.getString("mfs");
+				}
+				catch (Exception e)
+				{
+					System.out.print(e.getMessage());
+				}
+				
+				try
+				{
+					pkg = row.getString("pkg");
+				}
+				catch (Exception e)
+				{
+					System.out.print(e.getMessage());
+				}
+
+				try
+				{
+					amount = Integer.parseInt(row.getString("num"));
+				}
+				catch (Exception e)
+				{
+					System.out.print(e.getMessage());
+				}
+
+				
+				key.setCount(amount);
+				key.setKeyword(pn);
+				key.setPkg(pkg);
+				key.setMfs(mfs);
+				
+				keywords.add(key);
+			}
+        }
+		
+		return keywords;
+	}
 	
 	public static ArrayList<MultiKeyword> GetAnalyzedKeywords(String [] strInput)
 	{
@@ -137,6 +232,10 @@ public class KeywordLogic {
             	if(i > 10)
             		break;
             }
+            
+            // 20160503 one word search always isPn
+            if(i==1)
+            	kind.set(0, KeywordKind.IsPn);
             
             key.setKeyword(word);
             key.setKind(kind);

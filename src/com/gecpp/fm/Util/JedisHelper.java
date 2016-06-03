@@ -8,7 +8,7 @@ import redis.clients.jedis.Jedis;
 
 public class JedisHelper {
 	
-	static final boolean DEBUG_BUILD = true;
+	static final boolean DEBUG_BUILD = false;
 	
 	// 讀取redis
 		private static String RedisUrl;

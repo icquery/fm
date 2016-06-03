@@ -1,6 +1,7 @@
 package com.gecpp.fm;
 
 import java.util.List;
+import java.util.Map;
 
 public interface IFuzzySearch {
 	
@@ -69,7 +70,15 @@ public interface IFuzzySearch {
 	public QueryResult getProductByMultipleSearch(String[]  parts);
 	
 	
+	/**
+	 * getProductByMultipleSearchJson，2016/05/08 多料號搜索Json
+	 */
+	public QueryResult getProductByMultipleSearchJson(String  parts);
 	
+	/**
+	 * getProductByMultipleSearchJson，2016/05/17  多料号搜索入口新页面需求
+	 */
+	public Map<String,Map<String,MultipleParam>> findParamByPn(List<String> pns);
 }
 
 

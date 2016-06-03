@@ -13,6 +13,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -24,6 +25,7 @@ import javax.naming.Context;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
 
+import com.gecpp.fm.MultipleParam;
 import com.gecpp.fm.OrderResult;
 import com.gecpp.fm.QueryResult;
 import com.gecpp.fm.fuzzysearch;
@@ -31,6 +33,7 @@ import com.gecpp.fm.Dao.MultiKeyword;
 import com.gecpp.fm.Dao.Product;
 import com.gecpp.fm.Logic.OmSearchLogic;
 import com.gecpp.fm.Util.CommonUtil;
+import com.gecpp.fm.Util.DbHelper;
 import com.gecpp.fm.Util.SortUtil;
 
 class OrdManaerComparator implements Comparator<String> {
@@ -53,21 +56,14 @@ class OrdManaerComparator implements Comparator<String> {
 
 public class OrderManager {
 	
-	
- static final boolean DEBUG_BUILD = true;
-	
-	private static String OmUrl;
-	private static String OmUser;
-	private static String OmPwd;
-	
-	private static String fmUrl;
-	private static String fmUser;
-	private static String fmPwd;
+
 	
 	private String []  pns = null;
 	
 	// 20160112 多料號搜尋
-	private static final String getAllInfoByPn_headMulti = "SELECT a.inventory, a.offical_price, b.id, b.pn, b.supplier_pn, CASE WHEN trim(d.NAME) <> '' THEN d.NAME ELSE b.mfs END as mfs, b.supplier_id, c.abbreviation as supplier "
+	// 20160513價格庫存另外查
+	/*
+	private static final String getAllInfoByPn_headMulti = "SELECT a.inventory, a.offical_price, b.id, b.pn, b.supplier_pn, CASE WHEN trim(d.NAME) <> '' THEN d.NAME ELSE b.mfs END as mfs, b.supplier_id, c.abbreviation as supplier, b.pkg "
 			+ "FROM pm_product b  LEFT JOIN pm_store_price a on a.product_id = b.id and (a.valid =1 OR a.valid IS NULL) "
 			+ "LEFT JOIN pm_product_config e on(e.supplier_id=b.supplier_id) "
 			+ "LEFT JOIN pm_mfs_standard d on (b.mfs_id = d.id),  pm_supplier c  "
@@ -84,87 +80,32 @@ public class OrderManager {
 			+ "LEFT JOIN pm_product_config e on(e.supplier_id=b.supplier_id) "
 			+ "LEFT JOIN pm_mfs_standard d on (b.mfs_id = d.id),  pm_supplier c  "
 			+ " where b.id in(";
+	*/
 	
-	private static final String getAllInfoByPn_foot = ") and b.supplier_id = c.id AND b.status is null order by b.pn, c.TYPE";
+	private static final String getAllInfoByPn_headMulti = "SELECT 0 as inventory, '' as offical_price, b.id, b.pn, b.supplier_pn, CASE WHEN trim(d.NAME) <> '' THEN d.NAME ELSE b.mfs END as mfs, b.supplier_id, c.abbreviation as supplier, b.pkg, b.description "
+			+ "FROM pm_product b "
+			+ "LEFT JOIN pm_product_config e on(e.supplier_id=b.supplier_id) "
+			+ "LEFT JOIN pm_mfs_standard d on (b.mfs_id = d.id),  pm_supplier c  "
+			+ " where b.pn in(";
 	
-	private Connection om_conn = null;
+	private static final String getAllInfoByPn_head = "SELECT 0 as inventory, '' as offical_price, b.id, b.pn, b.supplier_pn, CASE WHEN trim(d.NAME) <> '' THEN d.NAME ELSE b.mfs END as mfs, b.supplier_id "
+			+ "FROM pm_product b "
+			+ "LEFT JOIN pm_product_config e on(e.supplier_id=b.supplier_id) "
+			+ "LEFT JOIN pm_mfs_standard d on (b.mfs_id = d.id),  pm_supplier c  "
+			+ " where b.pn in(";
+	
+	private static final String getAllInfoById_head = "SELECT  0 as inventory, '' as offical_price, b.id, b.pn, b.supplier_pn, CASE WHEN trim(d.NAME) <> '' THEN d.NAME ELSE b.mfs END as mfs, b.supplier_id "
+			+ "FROM pm_product b "
+			+ "LEFT JOIN pm_product_config e on(e.supplier_id=b.supplier_id) "
+			+ "LEFT JOIN pm_mfs_standard d on (b.mfs_id = d.id),  pm_supplier c  "
+			+ " where b.id in(";
+	
+	private static final String getAllInfoByPn_foot = ") and b.supplier_id = c.id AND b.status is null order by b.pn, c.TYPE  ";
+	
+	//private Connection om_conn = null;
 	
 	//private Connection fm_conn = null;
 
-	protected void loadParams() {
-		
-			Context envurl;
-			String entry;
-
-			try {
-				
-				if(DEBUG_BUILD == true)
-				{
-					envurl = (Context) new InitialContext().lookup("java:comp/env");
-					entry = (String) envurl.lookup("om.param.url.debug");
-					OmUrl = entry;
-		
-					envurl = (Context) new InitialContext().lookup("java:comp/env");
-					entry = (String) envurl.lookup("om.param.user.debug");
-					OmUser = entry;
-					
-					envurl = (Context) new InitialContext().lookup("java:comp/env");
-					entry = (String) envurl.lookup("om.param.pwd.debug");
-					OmPwd = entry;
-					
-					envurl = (Context) new InitialContext().lookup("java:comp/env");
-					entry = (String) envurl.lookup("fm.param.url.debug");
-					fmUrl = entry;
-		
-					envurl = (Context) new InitialContext().lookup("java:comp/env");
-					entry = (String) envurl.lookup("fm.param.user.debug");
-					fmUser = entry;
-					
-					envurl = (Context) new InitialContext().lookup("java:comp/env");
-					entry = (String) envurl.lookup("fm.param.pwd.debug");
-					fmPwd = entry;
-					
-					envurl = (Context) new InitialContext().lookup("java:comp/env");
-					entry = (String) envurl.lookup("om.param.redis.debug");
-				
-				}
-				else
-				{
-					envurl = (Context) new InitialContext().lookup("java:comp/env");
-					entry = (String) envurl.lookup("om.param.url");
-					OmUrl = entry;
-		
-					envurl = (Context) new InitialContext().lookup("java:comp/env");
-					entry = (String) envurl.lookup("om.param.user");
-					OmUser = entry;
-					
-					envurl = (Context) new InitialContext().lookup("java:comp/env");
-					entry = (String) envurl.lookup("om.param.pwd");
-					OmPwd = entry;
-					
-					envurl = (Context) new InitialContext().lookup("java:comp/env");
-					entry = (String) envurl.lookup("fm.param.url");
-					fmUrl = entry;
-		
-					envurl = (Context) new InitialContext().lookup("java:comp/env");
-					entry = (String) envurl.lookup("fm.param.user");
-					fmUser = entry;
-					
-					envurl = (Context) new InitialContext().lookup("java:comp/env");
-					entry = (String) envurl.lookup("fm.param.pwd");
-					fmPwd = entry;
-					
-					envurl = (Context) new InitialContext().lookup("java:comp/env");
-					entry = (String) envurl.lookup("om.param.redis");
-				
-				}
-
-		} catch (NamingException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-
-	}
 	
 	protected void InsertQueryLog(String keyword, String sql, Connection conWriter)
 	{
@@ -190,48 +131,13 @@ public class OrderManager {
 	}
 	
 	protected Connection getOmPgSqlConnection() throws Exception {
-        String driver = "org.postgresql.Driver";
-        String url = OmUrl;
-        String username = OmUser;
-        String password = OmPwd;
-        Class.forName(driver); // load MySQL driver
-        Connection conn = DriverManager.getConnection(url, username, password);
+        
+        Connection conn = DbHelper.connectPm();
         return conn;
     }
 	
-	protected Connection getfmPgSqlConnection() throws Exception {
-        String driver = "org.postgresql.Driver";
-        String url = fmUrl;
-        String username = fmUser;
-        String password = fmPwd;
-        Class.forName(driver); // load MySQL driver
-        Connection conn = DriverManager.getConnection(url, username, password);
-        return conn;
-    }
 
 
-    protected void connectPostgrel(){
-        try
-
-        {
-
-            String url = "";
-            om_conn = getOmPgSqlConnection();
-
-            om_conn.setAutoCommit(true);
-
-            //fm_conn = getfmPgSqlConnection();
-
-            //fm_conn.setAutoCommit(true);
-
-
-        } catch (Exception ee)
-
-        {
-            System.out.print(ee.getMessage());
-
-        }
-    }
     
     public OrderResult getProductByGroupInStoreId(List<String> notRepeatPns) {
 		
@@ -251,11 +157,6 @@ public class OrderManager {
 			return result;
 		}
 		
-		loadParams();
-		
-		connectPostgrel();
-		
-		
 		String pnsSql = createIdSql(notRepeatPns);
 		
 		List<Product> pkey = new ArrayList<>();
@@ -268,7 +169,6 @@ public class OrderManager {
 
         result = orderProductList(result);
         
-        attemptClose(om_conn);
 		
 		return result;
 	}
@@ -301,17 +201,16 @@ public class OrderManager {
 			return result;
 		}
 		
-		loadParams();
-		
-		connectPostgrel();
-		
 		List<Product> plist = new ArrayList<>();
 		List<Product> OmList = new ArrayList<>();
 		
 		String pnsSql = OmSearchLogic.getFormatPn(notRepeatPns);
 		String strSql = OmSearchLogic.getAllInforByPnList(pnsSql, inventory, lead, rohs, mfs, abbreviation);
 		
-		plist = formatToProductList(strSql, om_conn);
+		plist = formatToProductList(strSql);
+		// 20160514 change to search price next time
+		plist = OmSearchLogic.getPriceByProductList(plist, inventory);
+		plist = OmSearchLogic.getPriceByProductList(plist, lead, rohs, mfs, abbreviation);
 		
 		//InsertQueryLog("getProductByGroupInStoreDeep", strSql, om_conn);
 		
@@ -326,7 +225,6 @@ public class OrderManager {
         result.setTotalCount(OmSearchLogic.pageCount(plist));
         
         
-        attemptClose(om_conn);
 		
 		return result;
     }
@@ -357,9 +255,6 @@ public class OrderManager {
 			return result;
 		}
 		
-		loadParams();
-		
-		connectPostgrel();
 		
 		List<Product> plist = new ArrayList<>();
 		List<Product> OmList = new ArrayList<>();
@@ -367,11 +262,16 @@ public class OrderManager {
 		String pnsSql = OmSearchLogic.getFormatId(notRepeatPns);
 		String strSql = OmSearchLogic.getAllInforByIdList(pnsSql, inventory, lead, rohs, mfs, abbreviation);
 		
-		plist = formatToProductList(strSql, om_conn);
+		plist = formatToProductList(strSql);
+		// 20160514 change to search price next time
+		plist = OmSearchLogic.getPriceByProductList(plist, inventory);
+		plist = OmSearchLogic.getPriceByProductList(plist, lead, rohs, mfs, abbreviation);
 		
 		//InsertQueryLog("getProductByGroupInStoreDeep", strSql, om_conn);
 		
-		plist = dealWithWebPListRepeat(plist);
+		// 20160422 料號排序應該只限於排序料號
+		//plist = dealWithWebPListRepeat(plist);
+		plist = dealWithIdList(plist, notRepeatPns);
 		
 		// 分頁在此做
 		OmList = OmSearchLogic.pageData(plist, currentPage, pageSize);
@@ -381,7 +281,7 @@ public class OrderManager {
         result = orderProductList(result);
         result.setTotalCount(OmSearchLogic.pageCount(plist));
         
-        attemptClose(om_conn);
+ 
 		
 		return result;
     }
@@ -399,9 +299,6 @@ public class OrderManager {
 			return notRepeatPns;
 		}
 		
-		loadParams();
-		
-		connectPostgrel();
 		
 		
 		// 先把所有料號給pm去搜尋
@@ -426,8 +323,6 @@ public class OrderManager {
             notRepeatPns.get(i).setPkey(pkey);
         }
 	
-        
-        attemptClose(om_conn);
 		
 		return notRepeatPns;
 	}
@@ -445,9 +340,6 @@ public class OrderManager {
 			return notRepeatPns;
 		}
 		
-		loadParams();
-		
-		connectPostgrel();
 		
 		
 		// 先把所有料號給pm去搜尋
@@ -468,7 +360,6 @@ public class OrderManager {
         }
 	
         
-        attemptClose(om_conn);
 		
 		return notRepeatPns;
 	}
@@ -478,11 +369,6 @@ public class OrderManager {
 		
 		
 		
-		loadParams();
-		
-		connectPostgrel();
-		
-		
 		List<Product> pkey = new ArrayList<>();
         String s = pn;
             
@@ -490,8 +376,6 @@ public class OrderManager {
  
         pkey = getAllInforByPnMulti(pnkey);
             
-        
-        attemptClose(om_conn);
 		
 		return pkey;
 	}
@@ -514,9 +398,6 @@ public class OrderManager {
 			return result;
 		}
 		
-		loadParams();
-		
-		connectPostgrel();
 		
 		List<Product> plist = new ArrayList<>();
 		
@@ -532,6 +413,8 @@ public class OrderManager {
             plist.addAll(pkey);
         }
 		
+		// 20160514 change to search price next time
+		plist = OmSearchLogic.getPriceByProductList(plist, 0);
 		//plist = getAllInforByPnFuzzy(pnsSql);
 		
 		plist = dealWithWebPListRepeat(plist);
@@ -540,7 +423,6 @@ public class OrderManager {
 
         result = orderProductList(result);
         
-        attemptClose(om_conn);
 		
 		return result;
 	}
@@ -551,7 +433,7 @@ public class OrderManager {
 	private OrderResult orderProductList(OrderResult result)
     {
         LinkedHashMap<String, LinkedHashMap<String, List<Integer>>> returnMap = result.getPidList();
-        returnMap = sortHashMapByValuesD(returnMap);
+        //returnMap = sortHashMapByValuesD(returnMap);
 
         result.setPidList(returnMap);
         
@@ -603,6 +485,59 @@ public class OrderManager {
         return returnPID;
         
 	}
+	
+	private LinkedHashMap sortHashMapByValuesP(LinkedHashMap<String, LinkedHashMap<String, List<Product>>> passedMap) {
+
+        // 找各料號下面的項目多寡，多的排前面
+        HashMap<String, Integer> PnOrderMap = new HashMap<String, Integer>();
+        OrdManaerComparator ovc =  new OrdManaerComparator(PnOrderMap);
+        TreeMap<String,Integer> ord_map = new TreeMap<String,Integer>(ovc);
+
+        for (Map.Entry<String, LinkedHashMap<String, List<Product>>> entry : passedMap.entrySet()) {
+            String key = entry.getKey();
+            int count = 0;
+            Map<String, List<Product>> value = entry.getValue();
+
+            //System.out.println(key + ":");
+
+            for(Map.Entry<String, List<Product>> subentry : value.entrySet())
+            {
+                String subkey = subentry.getKey();
+
+                //System.out.println("    " + subkey + ":");
+
+                List<Product> subvalue = subentry.getValue();
+                
+                for(Product item : subvalue)
+                {
+                	// 20160516 count all for 
+                	//if(item.getPrice() != null)
+                	//	if(!item.getPrice().isEmpty())
+                			count++;
+                }
+
+                
+            }
+
+            PnOrderMap.put(key, count);
+
+        }
+
+        ord_map.putAll(PnOrderMap);
+
+        LinkedHashMap<String, LinkedHashMap<String, List<Product>>> returnMap = new LinkedHashMap<String, LinkedHashMap<String, List<Product>>>();
+
+
+        for(Map.Entry<String,Integer> entry : ord_map.entrySet()) {
+
+        	LinkedHashMap<String, List<Product>> value = passedMap.get(entry.getKey());
+
+            // 20160221 order by mfs
+            returnMap.put(entry.getKey(), SortUtil.RegroupIndexResultByMfsProduct(value));
+        }
+
+        return returnMap;
+    }
 
     private LinkedHashMap sortHashMapByValuesD(LinkedHashMap<String, LinkedHashMap<String, List<Integer>>> passedMap) {
 
@@ -666,6 +601,110 @@ public class OrderManager {
         return returnMap;
     }
     
+    
+ // 20160112 多料號搜尋
+    public Map<String,Map<String,MultipleParam>> formatParamMultiKeyword(ArrayList<MultiKeyword> notRepeatPns)
+    {
+    	Map<String,Map<String,MultipleParam>> result = new HashMap<String,Map<String,MultipleParam>>();
+
+    	for(MultiKeyword keys : notRepeatPns)
+    	{
+    		String pn = keys.getKeyword();
+
+    		List<Product> plist = keys.getPkey();
+    		
+    		Map<String,MultipleParam> mfsGroupMapInt = result.get(pn);
+    		if(mfsGroupMapInt == null) {
+            	mfsGroupMapInt = new HashMap<String, MultipleParam>();
+            	result.put(pn, mfsGroupMapInt);
+            }
+    		
+    		for (Product pro : plist) {
+    		
+    			String mfs = pro.getMfs();
+   
+    			if (mfs != null && mfs.trim().length() > 0) {
+
+	                MultipleParam supplierMap = mfsGroupMapInt.get(mfs);
+	                if (supplierMap == null) {
+	                	supplierMap = new MultipleParam();
+	                	mfsGroupMapInt.put(mfs, supplierMap);
+	                }
+	                
+	                
+	                List<String> desc = supplierMap.getDescriptions();
+	                if (desc == null) {
+	                	desc = new ArrayList<String>();
+	                	supplierMap.setDescriptions(desc);
+	                }
+	                
+	                List<String> pkgs = supplierMap.getPkgs();
+	                if (pkgs == null) {
+	                	pkgs = new ArrayList<String>();
+	                	supplierMap.setPkgs(pkgs);
+	                }
+	                
+	                boolean bPkg = false;
+	                boolean bDesc = false;
+	                
+	                String sPkg = "";
+	                String sDesc = "";
+	                
+	                try
+	                {
+	                	sPkg = pro.getPkg().trim();
+	                }
+	                catch(Exception e)
+	                {}
+	                
+	                try
+	                {
+	                	sDesc = pro.getDesciption().trim();
+	                }
+	                catch(Exception e)
+	                {}
+	                
+	                if(!sPkg.equalsIgnoreCase(""))
+	                {
+		                for(String pkg : pkgs)
+		                {
+		                	if(pkg.equalsIgnoreCase(sPkg))
+		                	{
+		                		bPkg = true;
+		                		break;
+		                	}
+		                }
+		                
+		                if(bPkg == false)
+		                {
+		                	pkgs.add(sPkg);
+		                }
+	                }
+	                
+	                if(!sDesc.equalsIgnoreCase(""))
+	                {
+		                for(String des : desc)
+		                {
+		                	if(des.equalsIgnoreCase(sDesc))
+		                	{
+		                		bDesc = true;
+		                		break;
+		                	}
+		                }
+		                
+		                if(bDesc == false)
+		                {
+		                	desc.add(pro.getDesciption().trim());
+		                }
+	                }
+	            }
+    		}
+    		
+    	}
+    	
+    	return result;
+    }
+    
     // 20160112 多料號搜尋
     public QueryResult formatFromMultiKeyword(ArrayList<MultiKeyword> notRepeatPns)
     {
@@ -690,9 +729,9 @@ public class OrderManager {
     	*/
     	
     	
-    	LinkedHashMap<String, Map<String, Map<Integer, List<Integer>>>> returnMapMfs1 = new LinkedHashMap<String, Map<String, Map<Integer, List<Integer>>>>();
-    	LinkedHashMap<String, Map<String, Map<Integer, List<Integer>>>> returnMapMfs2 = new LinkedHashMap<String, Map<String, Map<Integer, List<Integer>>>>();
-    	LinkedHashMap<String, Map<String, Map<Integer, List<Integer>>>> returnMapMfs3 = new LinkedHashMap<String, Map<String, Map<Integer, List<Integer>>>>();
+    	LinkedHashMap<String, Map<String, Map<Integer, Integer>>> returnMapMfs1 = new LinkedHashMap<String, Map<String, Map<Integer, Integer>>>();
+    	LinkedHashMap<String, Map<String, Map<Integer, Integer>>> returnMapMfs2 = new LinkedHashMap<String, Map<String, Map<Integer, Integer>>>();
+    	LinkedHashMap<String, Map<String, Map<Integer, Integer>>> returnMapMfs3 = new LinkedHashMap<String, Map<String, Map<Integer, Integer>>>();
    
     	result.setPidListGroupMfs1(returnMapMfs1);
     	result.setPidListGroupMfs2(returnMapMfs2);
@@ -703,13 +742,80 @@ public class OrderManager {
     	{
     		int amount = key.getCount();
     		String pn = key.getKeyword();
+    		String pkg = key.getPkg();
+    		String mfs = key.getMfs();
+    		
     		List<Product> plist = key.getPkey();
+    		
+    		
+    		
+    		
+    		// 20160508加入封裝與製造商篩選資訊
+    		List<Product> orzList = new ArrayList<Product>();
+    		
+    		if(pkg != null)
+    		{
+	    		if(!pkg.equalsIgnoreCase(""))
+	    		{
+		    		for(Product pro : plist)
+		    		{
+		    			String sPkg = "";
+		    			try{
+		    				sPkg = pro.getPkg().trim();
+		    			}
+		    			catch(Exception e)
+		    			{
+		    				
+		    			}
+		    			if(sPkg.equalsIgnoreCase(pkg))
+		    				orzList.add(pro);
+		    		}
+		    		
+		    		plist.clear();
+		    		plist.addAll(orzList);
+	    		}
+    		}
+    		
+    		orzList.clear();
+    		
+    		if(mfs != null)
+    		{
+	    		if(!mfs.equalsIgnoreCase(""))
+	    		{
+		    		for(Product pro : plist)
+		    		{
+		    			String sMfs = "";
+		    			try{
+		    				sMfs = pro.getMfs().trim();
+		    			}
+		    			catch(Exception e)
+		    			{
+		    				
+		    			}
+		    			if(sMfs.equalsIgnoreCase(mfs))
+		    				orzList.add(pro);
+		    		}
+		    		
+		    		plist.clear();
+		    		plist.addAll(orzList);
+	    		}
+    		}
+    		
+    		// 選取不到就算完全不符合
+    		if(plist.size() == 0)
+    		{
+    			returnMapMfs3.put(pn, formatMapFromProductListMfsSupplier(pn, plist));
+    			continue;
+    		}
     		
     		// 完全匹配
     		if(key.getSearchtype() == 1)
     		{
     			
     			List<Product> newList = new ArrayList<Product>();
+    			
+    			
+    			
     			
     			for(Product product :plist)
     			{
@@ -756,9 +862,9 @@ public class OrderManager {
     }
     
     // 20160415 多料號搜尋(Leo更改規格 to Map<pn,Map<mfs,Map<supplier_id,List<pid>>>>)
-    private Map<String, Map<Integer, List<Integer>>> formatMapFromProductListMfsSupplier(String pnkey, List<Product> plist) {
+    private Map<String, Map<Integer, Integer>> formatMapFromProductListMfsSupplier(String pnkey, List<Product> plist) {
     	
-    	Map<String, Map<Integer, List<Integer>>> mfsGroupMapInt = new  LinkedHashMap<String, Map<Integer, List<Integer>>>();
+    	Map<String, Map<Integer, Integer>> mfsGroupMapInt = new  LinkedHashMap<String, Map<Integer, Integer>>();
     
     	for (Product pro : plist) {
     		
@@ -768,35 +874,29 @@ public class OrderManager {
     		if (mfs != null && mfs.trim().length() > 0) {
 
                 if(mfsGroupMapInt == null) {
-                	mfsGroupMapInt = new LinkedHashMap<String, Map<Integer, List<Integer>>>();
+                	mfsGroupMapInt = new LinkedHashMap<String, Map<Integer, Integer>>();
                 	
                 }
                 
-                Map<Integer, List<Integer>> supplierMap = mfsGroupMapInt.get(mfs);
+                Map<Integer, Integer> supplierMap = mfsGroupMapInt.get(mfs);
                 if (supplierMap == null) {
-                	supplierMap = new HashMap<Integer, List<Integer>>();
+                	supplierMap = new HashMap<Integer, Integer>();
                 	mfsGroupMapInt.put(mfs, supplierMap);
                 }
                 
-                List<Integer> idlist = supplierMap.get(supplier_id);
+                Integer idlist = supplierMap.get(supplier_id);
+                
+                // 取id大者
                 if(idlist == null)
                 {
-                	idlist = new ArrayList<Integer>();
+                	idlist = pro.getId();
                 	supplierMap.put(supplier_id, idlist);
                 }
-            
-                boolean existFlat = false;
-                for (Integer id : idlist) {
-                    int productId = pro.getId();
-                    
-                    if (productId == id) {
-                        existFlat = true;
-                        break;
-                    }
+                else
+                {
+                	if(idlist < pro.getId());
+                	supplierMap.put(supplier_id, pro.getId());
                 }
-                //add if not exist
-                if (!existFlat) 
-                	idlist.add(pro.getId());
                 
             }
     	}
@@ -944,18 +1044,21 @@ public class OrderManager {
                     {
                     	//listSupplier.add(pro.getSupplierid());
                     	listSupplier.add(pro.getId());
+                    	listInt.add(pro);
                     }
                     
-                    listInt.add(pro);
                 }
             }
 
         }
         
-        supplierMap = sortHashMapByValuesD(supplierMap);
+        // 20160501 把無價格的排除不計算
+        returnMap = sortHashMapByValuesP(returnMap);
+        
+        //supplierMap = sortHashMapByValuesD(supplierMap);
         
         // ReOrder returnMap by supplier order
-        for (Map.Entry<String, LinkedHashMap<String, List<Integer>>> entry : supplierMap.entrySet()) {
+        for (Map.Entry<String, LinkedHashMap<String, List<Product>>> entry : returnMap.entrySet()) {
             String key = entry.getKey();
           
             Map<String, List<Product>> value = returnMap.get(key);
@@ -1088,7 +1191,7 @@ public class OrderManager {
 
         return pnSql;
     }
-	
+	/*
 	private List<Product> getAllInforByPnFuzzy(String pnkey) {
 		 
 		String strSql = getAllInfoByPn_head +  "( SELECT pn FROM pm_supplier_pn WHERE supplier_pn_key in (" + pnkey + ") LIMIT 20 ) "
@@ -1098,7 +1201,7 @@ public class OrderManager {
 		
 		long startSqlTime = System.currentTimeMillis();
 		
-		List<Product> plist = formatToProductList(strSql, om_conn);
+		List<Product> plist = formatToProductList(strSql);
 		
 		long stopSqlTime = System.currentTimeMillis();
 		long elapsedSqlTime = stopSqlTime - startSqlTime;
@@ -1107,6 +1210,7 @@ public class OrderManager {
         
 		return plist;
 	}
+	*/
 	
 	// 20160112 多料號搜尋
 	private List<Product> getAllInforByPnMulti(String pnkey) {
@@ -1117,7 +1221,9 @@ public class OrderManager {
 		
 		long startSqlTime = System.currentTimeMillis();
 		
-		List<Product> plist = formatToProductListMulti(strSql, om_conn);
+		List<Product> plist = formatToProductListMulti(strSql);
+		// 20160514 change to search price next time
+		plist = OmSearchLogic.getPriceByProductList(plist);
 		
 		long stopSqlTime = System.currentTimeMillis();
 		long elapsedSqlTime = stopSqlTime - startSqlTime;
@@ -1137,7 +1243,9 @@ public class OrderManager {
 			
 			long startSqlTime = System.currentTimeMillis();
 			
-			List<Product> plist = formatToProductListMulti(strSql, om_conn);
+			List<Product> plist = formatToProductListMulti(strSql);
+			// 20160514 change to search price next time
+			plist = OmSearchLogic.getPriceByProductList(plist);
 			
 			long stopSqlTime = System.currentTimeMillis();
 			long elapsedSqlTime = stopSqlTime - startSqlTime;
@@ -1156,7 +1264,9 @@ public class OrderManager {
 		
 		long startSqlTime = System.currentTimeMillis();
 		
-		List<Product> plist = formatToProductList(strSql, om_conn);
+		List<Product> plist = formatToProductList(strSql);
+		// 20160514 change to search price next time
+		plist = OmSearchLogic.getPriceByProductList(plist, 0);
 		
 		long stopSqlTime = System.currentTimeMillis();
 		long elapsedSqlTime = stopSqlTime - startSqlTime;
@@ -1174,7 +1284,9 @@ public class OrderManager {
 		
 		long startSqlTime = System.currentTimeMillis();
 		
-		List<Product> plist = formatToProductList(strSql, om_conn);
+		List<Product> plist = formatToProductList(strSql);
+		// 20160514 change to search price next time
+		plist = OmSearchLogic.getPriceByProductList(plist, 0);
 		
 		long stopSqlTime = System.currentTimeMillis();
 		long elapsedSqlTime = stopSqlTime - startSqlTime;
@@ -1193,6 +1305,53 @@ public class OrderManager {
 	    return true;
 	}
 	
+	// 20160422 針對模糊搜尋的排序
+	private List<Product> dealWithIdList(List<Product> productList, List<String> notRepeatPns) {
+		List<Product> orderReturnList = new ArrayList<Product>();
+		List<String> orderPn = new ArrayList<String>();
+		LinkedHashSet hs = new LinkedHashSet();
+		Map<String, LinkedHashSet<Product>> groupProductList = new HashMap<String, LinkedHashSet<Product>>();
+		
+		LinkedHashSet idHs = new LinkedHashSet();
+		
+		for(String sid : notRepeatPns)
+		{
+			int pid = Integer.parseInt(sid);
+			
+			for(Product pro : productList)
+			{
+				if(pro.getId() == pid)
+				{
+					String sPn = pro.getPn();
+					if(!sPn.isEmpty())
+					{
+						hs.add(sPn);
+						
+						LinkedHashSet<Product> listProduct = groupProductList.get(sPn);
+						if (listProduct == null) {
+							listProduct = new LinkedHashSet<Product>();
+							groupProductList.put(sPn, listProduct);
+		                }
+		            
+						// 20160511 fix duplicate ids
+						if(!idHs.contains(pro.getId()))
+						{
+							idHs.add(pro.getId());
+							listProduct.add(pro);
+						}
+					}
+				}
+			}
+		}
+		
+		Iterator<String> itr = hs.iterator();
+        while(itr.hasNext()){
+        	orderReturnList.addAll(groupProductList.get(itr.next()));
+        }
+		
+		return orderReturnList;
+	}
+		
 	// 20160416 deprecated
 	private List<Product> dealWithWebPListRepeat(List<Product> productList) {
 		
@@ -1247,9 +1406,11 @@ public class OrderManager {
     }
 	
 	
-	private List<Product> formatToProductList(String strSql, Connection conn) {
+	private List<Product> formatToProductList(String strSql) {
 
 		List<Product> sList = new ArrayList<>();
+		
+		Connection conn = DbHelper.connectPm();
 
 		try {
 
@@ -1260,7 +1421,7 @@ public class OrderManager {
 				stmt = conn.createStatement();
 				rs = stmt.executeQuery(strSql);
 				while (rs.next())
-					sList.add(new Product(rs.getInt(1), rs.getString(2), rs.getInt(3), rs.getString(4), rs.getString(5), rs.getString(6), rs.getInt(7)));
+					sList.add(new Product(rs.getInt(1), rs.getString(2), rs.getInt(3), rs.getString(4), rs.getString(5), rs.getString(6), rs.getInt(7), rs.getString(8), rs.getString(9), rs.getInt(10)));
 	
 			}
 
@@ -1268,7 +1429,7 @@ public class OrderManager {
 
 				attemptClose(rs);
 				attemptClose(stmt);
-
+				attemptClose(conn);
 			}
 
 		} catch (Exception e) {
@@ -1281,12 +1442,13 @@ public class OrderManager {
 	}
 	
 	// 20160112 多料號搜尋
-	private List<Product> formatToProductListMulti(String strSql, Connection conn) {
+	private List<Product> formatToProductListMulti(String strSql) {
 
 		List<Product> sList = new ArrayList<>();
 
 		try {
 
+			Connection conn = DbHelper.connectPm();
 			Statement stmt = null;
 			ResultSet rs = null;
 
@@ -1294,7 +1456,7 @@ public class OrderManager {
 				stmt = conn.createStatement();
 				rs = stmt.executeQuery(strSql);
 				while (rs.next())
-					sList.add(new Product(rs.getInt(1), rs.getString(2), rs.getInt(3), rs.getString(4), rs.getString(5), rs.getString(6), rs.getInt(7), rs.getString(8)));
+					sList.add(new Product(rs.getInt(1), rs.getString(2), rs.getInt(3), rs.getString(4), rs.getString(5), rs.getString(6), rs.getInt(7), rs.getString(8), rs.getString(9), rs.getString(10)));
 	
 			}
 
@@ -1302,7 +1464,7 @@ public class OrderManager {
 
 				attemptClose(rs);
 				attemptClose(stmt);
-
+				attemptClose(conn);
 			}
 
 		} catch (Exception e) {

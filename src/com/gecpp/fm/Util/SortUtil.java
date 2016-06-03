@@ -80,6 +80,41 @@ public class SortUtil {
 		return returnMap;
 	}
 	
+	// // 20160501 sort by mfs(by product)
+	public static LinkedHashMap<String, List<Product>> RegroupIndexResultByMfsProduct(LinkedHashMap<String, List<Product>> unsortMap)
+	{
+		HashMap<String, Integer> pnWeight = new  HashMap<String, Integer>();
+		
+		LinkedHashMap<String, List<Product>> returnMap = new LinkedHashMap<String, List<Product>>();
+		
+		for(Map.Entry<String,List<Product>> group_entry : unsortMap.entrySet())
+		{
+			int count = 0;
+			List<Product> subvalue = group_entry.getValue();
+			
+			for(Product item : subvalue)
+            {
+				// 20160516 count all for 
+            	//if(item.getPrice() != null)
+            	//	if(!item.getPrice().isEmpty())
+            			count++;
+            }
+			pnWeight.put(group_entry.getKey(), count);
+		}
+		
+		LinkedHashMap<String, Integer> groupMapByCount = sortByComparator(pnWeight, DESC);
+		
+		for(Map.Entry<String,Integer> group_entry : groupMapByCount.entrySet())
+		{
+			List<Product> entryList = new ArrayList<Product>();
+			entryList.addAll(unsortMap.get(group_entry.getKey()));
+			
+			returnMap.put(group_entry.getKey(), entryList);	
+		}
+		return returnMap;
+	}
+	
+	
 	public static List<IndexResult> RegroupIndexResult(List<IndexResult> list1, List<IndexResult> list2)
 	{
 		// 料號與權重對照表

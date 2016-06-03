@@ -49,8 +49,8 @@ public class CommonUtil {
         pnKey = pnKey.trim();
 
         pnKey = org.apache.commons.lang3.StringUtils.replaceEach(pnKey,
-                new String[]{" ", "/", "+", "?", "%", "#", "&", "=", "-", "(", ")", "\'", ".", "quot;", "apos;", "\""},
-                new String[]{"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""});
+                new String[]{" ", "/", "+", "?", "%", "#", "&", "=", "-", "(", ")", "\'", ".", "quot;", "apos;", "\"", "_"},
+                new String[]{"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""});
 
         pnKey = pnKey.replace("|", "/"); // 对在页面里将modelname中/转换成|,在此处转换回/
         pnKey = pnKey.replace("<", "");

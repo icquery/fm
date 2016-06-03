@@ -80,52 +80,51 @@ public class QueryResult implements Serializable {
 	
 	
 	// 20160415 change structure for leo
+	private LinkedHashMap<String, Map<String,Map<Integer, Integer>>>  PidListGroupMfs1;	// 結構  (料號, Map<pn,Map<mfs,Map<supplier_id,pid>>>)
 	
-	private LinkedHashMap<String, Map<String,Map<Integer, List<Integer>>>>  PidListGroupMfs1;	// 結構  (料號, Map<pn,Map<mfs,Map<supplier_id,List<pid>>>>)
+	private LinkedHashMap<String, Map<String,Map<Integer, Integer>>>  PidListGroupMfs2;	// 結構  (料號, Map<pn,Map<mfs,Map<supplier_id,pid>>>)
 	
-	private LinkedHashMap<String, Map<String,Map<Integer, List<Integer>>>>  PidListGroupMfs2;	// 結構  (料號, Map<pn,Map<mfs,Map<supplier_id,List<pid>>>>)
-	
-	private LinkedHashMap<String, Map<String,Map<Integer, List<Integer>>>>  PidListGroupMfs3;	// 結構  (料號, Map<pn,Map<mfs,Map<supplier_id,List<pid>>>>)
+	private LinkedHashMap<String, Map<String,Map<Integer, Integer>>>  PidListGroupMfs3;	// 結構  (料號, Map<pn,Map<mfs,Map<supplier_id,pid>>>)
 
 	/**
 	 * @return the pidListGroupMfs1
 	 */
-	public LinkedHashMap<String, Map<String,Map<Integer, List<Integer>>>> getPidListGroupMfs1() {
+	public LinkedHashMap<String, Map<String,Map<Integer, Integer>>> getPidListGroupMfs1() {
 		return PidListGroupMfs1;
 	}
 
 	/**
 	 * @param pidListGroupMfs1 the pidListGroupMfs1 to set
 	 */
-	public void setPidListGroupMfs1(LinkedHashMap<String, Map<String,Map<Integer, List<Integer>>>> pidListGroupMfs1) {
+	public void setPidListGroupMfs1(LinkedHashMap<String, Map<String,Map<Integer, Integer>>> pidListGroupMfs1) {
 		PidListGroupMfs1 = pidListGroupMfs1;
 	}
 
 	/**
 	 * @return the pidListGroupMfs2
 	 */
-	public LinkedHashMap<String, Map<String,Map<Integer, List<Integer>>>> getPidListGroupMfs2() {
+	public LinkedHashMap<String, Map<String,Map<Integer, Integer>>> getPidListGroupMfs2() {
 		return PidListGroupMfs2;
 	}
 
 	/**
 	 * @param pidListGroupMfs2 the pidListGroupMfs2 to set
 	 */
-	public void setPidListGroupMfs2(LinkedHashMap<String, Map<String,Map<Integer, List<Integer>>>> pidListGroupMfs2) {
+	public void setPidListGroupMfs2(LinkedHashMap<String, Map<String,Map<Integer, Integer>>> pidListGroupMfs2) {
 		PidListGroupMfs2 = pidListGroupMfs2;
 	}
 
 	/**
 	 * @return the pidListGroupMfs3
 	 */
-	public LinkedHashMap<String, Map<String,Map<Integer, List<Integer>>>> getPidListGroupMfs3() {
+	public LinkedHashMap<String, Map<String,Map<Integer, Integer>>> getPidListGroupMfs3() {
 		return PidListGroupMfs3;
 	}
 
 	/**
 	 * @param pidListGroupMfs3 the pidListGroupMfs3 to set
 	 */
-	public void setPidListGroupMfs3(LinkedHashMap<String, Map<String,Map<Integer, List<Integer>>>> pidListGroupMfs3) {
+	public void setPidListGroupMfs3(LinkedHashMap<String, Map<String,Map<Integer, Integer>>> pidListGroupMfs3) {
 		PidListGroupMfs3 = pidListGroupMfs3;
 	}
 	

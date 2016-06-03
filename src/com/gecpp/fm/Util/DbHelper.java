@@ -16,6 +16,7 @@ import javax.naming.InitialContext;
 import javax.naming.NamingException;
 
 import com.gecpp.fm.fuzzysearch;
+import com.mchange.v2.c3p0.ComboPooledDataSource;
 
 public class DbHelper {
 	
@@ -24,7 +25,7 @@ public class DbHelper {
 	} 
 	 
 	
-	static final  boolean DEBUG_BUILD = true;
+	static final  boolean DEBUG_BUILD = false;
 	
 	private static String OmUrl;
 	private static String OmUser;
@@ -33,6 +34,9 @@ public class DbHelper {
 	private static String fmUrl;
 	private static String fmUser;
 	private static String fmPwd;
+	
+	private static ComboPooledDataSource cpdsPm = null;
+	private static ComboPooledDataSource cpdsFm = null;
 	
 	// 讀取redis
 	private static String RedisUrl;
@@ -144,12 +148,40 @@ public class DbHelper {
 		
 		try
         {
-            String driver = "org.postgresql.Driver";
-            String url = fmUrl;
-            String username = fmUser;
-            String password = fmPwd;
-            Class.forName(driver); // load MySQL driver
-            pmConn = DriverManager.getConnection(url, username, password);
+			if(DEBUG_BUILD != true)
+			{
+				if(cpdsFm == null)
+				{
+					cpdsFm = new ComboPooledDataSource();
+					
+					cpdsFm.setDriverClass("org.postgresql.Driver"); //loads the jdbc driver
+					cpdsFm.setJdbcUrl(fmUrl);
+					cpdsFm.setUser(fmUser);
+					cpdsFm.setPassword(fmPwd);
+		
+			        // the settings below are optional -- c3p0 can work with defaults
+					cpdsFm.setMinPoolSize(10);
+					cpdsFm.setAcquireIncrement(10);
+					cpdsFm.setMaxPoolSize(80);
+					cpdsFm.setMaxStatements(200);
+					
+					cpdsFm.setMaxIdleTime(60);
+					
+					LogQueryHistory.InsertLog("fuzzysearch", "connectFm()");
+				}
+				
+				pmConn = cpdsFm.getConnection();
+			}
+			else
+			{
+	            String driver = "org.postgresql.Driver";
+	            String url = fmUrl;
+	            String username = fmUser;
+	            String password = fmPwd;
+	            Class.forName(driver); // load MySQL driver
+	            
+	            pmConn = DriverManager.getConnection(url, fmUser, fmPwd);
+			}
 
             pmConn.setAutoCommit(true);
 
@@ -278,14 +310,43 @@ public class DbHelper {
 		
 		try
         {
-            String driver = "org.postgresql.Driver";
-            String url = OmUrl;
-            String username = OmUser;
-            String password = OmPwd;
-            Class.forName(driver); // load MySQL driver
-            pmConn = DriverManager.getConnection(url, username, password);
-
-            pmConn.setAutoCommit(true);
+			if(DEBUG_BUILD != true)
+			{
+				if(cpdsPm == null)
+				{
+					cpdsPm = new ComboPooledDataSource();
+				
+					cpdsPm.setDriverClass("org.postgresql.Driver"); //loads the jdbc driver
+					cpdsPm.setJdbcUrl(OmUrl);
+					cpdsPm.setUser(OmUser);
+					cpdsPm.setPassword(OmPwd);
+		
+			        // the settings below are optional -- c3p0 can work with defaults
+					cpdsPm.setMinPoolSize(10);
+					cpdsPm.setAcquireIncrement(10);
+					cpdsPm.setMaxPoolSize(80);
+					cpdsPm.setMaxStatements(200);
+					
+					cpdsPm.setMaxIdleTime(60);
+					
+					LogQueryHistory.InsertLog("fuzzysearch", "connectPm()");
+	
+				}
+				
+				pmConn = cpdsPm.getConnection();
+			}
+			else
+			{
+	            String driver = "org.postgresql.Driver";
+	            String url = OmUrl;
+	            String username = OmUser;
+	            String password = OmPwd;
+	            Class.forName(driver); // load MySQL driver
+	            pmConn = DriverManager.getConnection(url, OmUser, OmPwd);
+            }
+            
+			pmConn.setAutoCommit(true);
+            
 
         } catch (Exception ee)
         {

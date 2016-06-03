@@ -3,6 +3,7 @@ package com.gecpp.fm;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
@@ -134,6 +135,27 @@ public class ServiceImpl extends HessianServlet implements IFuzzySearch {
 		return result;
 	}
 	
-
+	@Override
+	public QueryResult getProductByMultipleSearchJson(String  parts)
+	{
+		FuzzyInstance fi = new FuzzyInstance();
+		
+		QueryResult result = fi.QueryProductByMultipleSearchJson(parts);
+		
+		return result;
+	}
+	
+	@Override
+	public Map<String,Map<String,MultipleParam>> findParamByPn(List<String> pns)
+	{
+		String[] stockArr = new String[pns.size()];
+		stockArr = pns.toArray(stockArr);
+		
+		FuzzyInstance fi = new FuzzyInstance();
+		
+		Map<String,Map<String,MultipleParam>> result = fi.QueryParamterByMultipleSearch(stockArr);
+		
+		return result;
+	}
 }
 
