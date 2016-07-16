@@ -62,9 +62,10 @@ public class OrderManagerModel {
 
 	}
 	
-	public static List<String> getPnsByPnKey(String pnKey) {
+public static List<String> getPnsByPnKey(String pnKey) {
 		
 		List<String> sList = null;
+		List<String> fmList = null;
 		
 		pnKey = CommonUtil.parsePnKey(pnKey);
 		
@@ -72,6 +73,29 @@ public class OrderManagerModel {
 		+ " UNION (SELECT pn FROM pm_pn where pn_key like '" + pnKey + "' limit 50) ORDER BY pn limit 50";
 
 		sList = DbHelper.getList(strSql, Site.pm);
+		
+		sList = CommonUtil.removeSpaceList(sList);
+		
+		fmList = getPnsByPnKeyFuzzy(pnKey);
+		
+		for (String x : fmList){
+			   if (!sList.contains(x))
+				   sList.add(x);
+			}
+
+		return sList;
+
+	}
+	
+	public static List<String> getPnsByPnKeyFuzzy(String pnKey) {
+		
+		List<String> sList = null;
+		
+		pnKey = CommonUtil.parsePnKey(pnKey);
+		
+		String strSql = "select distinct word from qeindex where kind = 0 and word like  '" + pnKey + "' limit 100 ";
+
+		sList = DbHelper.getList(strSql, Site.fm);
 		
 		sList = CommonUtil.removeSpaceList(sList);
 

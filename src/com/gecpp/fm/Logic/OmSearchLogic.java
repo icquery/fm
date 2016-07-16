@@ -31,19 +31,21 @@ public class OmSearchLogic {
 			+ " where b.id in(";
 	*/
 	
-	private static final String getAllInfoByPn_head = "SELECT 0 as inventory, '' as offical_price, b.id, b.pn, b.supplier_pn, CASE WHEN trim(d.NAME) <> '' THEN d.NAME ELSE b.mfs END as mfs, b.supplier_id, b.lead, b.rohs, b.mfs_id "
+	private static final String getAllInfoByPn_head = "SELECT 0 as inventory, '' as offical_price, b.id, b.pn, b.supplier_pn, CASE WHEN trim(d.NAME) <> '' THEN d.NAME ELSE b.mfs END as mfs, b.supplier_id, b.lead, b.rohs, b.mfs_id, b.pkg, c.name "
 			+ "FROM pm_product b "
 			+ "LEFT JOIN pm_product_config e on(e.supplier_id=b.supplier_id) "
 			+ "LEFT JOIN pm_mfs_standard d on (b.mfs_id = d.id),  pm_supplier c  "
 			+ " where b.pn in(";
 	
-	private static final String getAllInfoById_head = "SELECT 0 as inventory, '' as offical_price, b.id, b.pn, b.supplier_pn, CASE WHEN trim(d.NAME) <> '' THEN d.NAME ELSE b.mfs END as mfs, b.supplier_id, b.lead, b.rohs, b.mfs_id "
+	private static final String getAllInfoById_head = "SELECT 0 as inventory, '' as offical_price, b.id, b.pn, b.supplier_pn, CASE WHEN trim(d.NAME) <> '' THEN d.NAME ELSE b.mfs END as mfs, b.supplier_id, b.lead, b.rohs, b.mfs_id, b.pkg, c.name "
 			+ "FROM pm_product b "
 			+ "LEFT JOIN pm_product_config e on(e.supplier_id=b.supplier_id) "
 			+ "LEFT JOIN pm_mfs_standard d on (b.mfs_id = d.id),  pm_supplier c  "
 			+ " where b.id in(";
 	
-	private static final String getAllInfoByPn_foot = ") and b.supplier_id = c.id AND b.status is null "; //order by b.pn, c.TYPE";
+	
+	
+	private static final String getAllInfoByPn_foot = ") and b.supplier_id = c.id AND b.status is null and  (c.status='1' OR c.status  IS NULL) "; //order by b.pn, c.TYPE";
 	
 	// 20160526 use pm_store_price_select
 	/*
@@ -192,6 +194,8 @@ public class OmSearchLogic {
 		return strSql;
 	}
 	
+
+	
 	public static List<Product> getPriceByProductList(List<Product> unPriceProductList)
 	{		
 		if(unPriceProductList == null)
@@ -275,6 +279,168 @@ public class OmSearchLogic {
 		return newProductList;
 		
 	}
+	
+	
+	public static List<Product> getPriceByProductList(List<Product> unPriceProductList, int inventory, boolean bPrice)
+	{
+		if(inventory == 0 && bPrice == false)
+			return unPriceProductList;
+		
+		if(unPriceProductList == null)
+			return unPriceProductList;
+		
+		if(unPriceProductList.size() == 0)
+			return unPriceProductList;
+		
+		String strIds = getFormatIdFromProdcut(unPriceProductList);
+		String strSql = getAllPrice_head +  strIds  
+				+ getAllPrice_foot;
+		
+		List<IndexPrice> priceList = OrderManagerModel.getPriceByProdcut(strSql);
+		
+		List<Product> newProductList = new ArrayList<Product>();
+		
+		for(IndexPrice plist : priceList)
+		{
+			for(Product pro : unPriceProductList)
+			{
+				if(pro.getId() == plist.getId())
+				{
+					if(inventory != 0)
+					{
+						if(plist.getInventory() >= inventory)
+						{
+							pro.setInventory(plist.getInventory());
+							pro.setPrice(plist.getPrice());
+							newProductList.add(pro);
+						}
+					}
+					else
+					{
+						if(bPrice)
+						{
+							pro.setInventory(plist.getInventory());
+							pro.setPrice(plist.getPrice());
+							newProductList.add(pro);
+						}
+						else
+						{
+							pro.setInventory(plist.getInventory());
+							pro.setPrice(plist.getPrice());
+						}
+
+					}
+					
+					break;
+				}
+			}
+		}
+		
+		return newProductList;
+		
+	}
+	
+	public static List<Product> getPriceByProductListDetail(List<Product> unPriceProductList, int inventory, int hasStock, int noStock, int hasPrice, int hasInquery)
+	{
+
+		if(unPriceProductList == null)
+			return unPriceProductList;
+		
+		if(unPriceProductList.size() == 0)
+			return unPriceProductList;
+		
+		String strIds = getFormatIdFromProdcut(unPriceProductList);
+		String strSql = getAllPrice_head +  strIds  
+				+ getAllPrice_foot;
+		
+		
+		
+		List<IndexPrice> priceList = OrderManagerModel.getPriceByProdcut(strSql);
+		
+		List<Product> newProductList = new ArrayList<Product>();
+		
+		for(IndexPrice plist : priceList)
+		{
+			for(Product pro : unPriceProductList)
+			{
+				if(pro.getId() == plist.getId())
+				{
+					boolean bAddToNewList = false;
+					
+					String price = "";
+					
+					try
+		            {
+						price = plist.getPrice().trim();
+		            }
+		            catch(Exception e)
+		            {}
+					
+					// 庫存
+					if(inventory != 0)
+					{
+						if(plist.getInventory() >= inventory)
+						{
+							pro.setInventory(plist.getInventory());
+							pro.setPrice(plist.getPrice());
+
+				            bAddToNewList = true;
+
+						}
+					}
+					else
+					{
+						pro.setInventory(plist.getInventory());
+						pro.setPrice(plist.getPrice());
+						
+						bAddToNewList = false;
+
+					}
+					
+					// 有庫存
+					if(hasStock > 0)
+		            {
+		            	if(plist.getInventory() > 0)
+		            		bAddToNewList = true;
+		            	
+		            }
+					
+					// 無庫存
+					if(noStock > 0)
+		            {
+		            	if(plist.getInventory() == 0)
+		            		bAddToNewList = true;
+		            	
+		            }
+					
+					// 有價格
+					if(hasPrice > 0)
+					{
+						if(!price.equalsIgnoreCase(""))
+							bAddToNewList = true;
+						
+					}
+					
+					// 可詢價
+					if(hasInquery > 0)
+					{
+						if(price.equalsIgnoreCase("") && plist.getInventory() > 0)
+							bAddToNewList = true;
+						
+					}
+					
+					if(bAddToNewList == true)
+						newProductList.add(pro);
+					
+					break;
+				}
+			}
+		}
+		
+		return newProductList;
+		
+	}
+	
 	
 	public static List<Product> getPriceByProductList(List<Product> unPriceProductList, int lead, int rohs, List<Integer> mfs_id, List<Integer> supplier_id)
 	{
@@ -377,6 +543,142 @@ public class OmSearchLogic {
 		return newProductList;
 		
 	}
+	
+	
+	public static List<Product> getPriceByProductListDetail(List<Product> unPriceProductList, int lead, int rohs, List<Integer> mfs_id, List<Integer> supplier_id, List<String> pkg )
+	{
+		List<Product> newProductList = new ArrayList<Product>();
+		
+		for (Product pro : unPriceProductList) {
+			
+			String sLead = "";
+            String sRohs = "";
+            int mfsId = 0;
+            int supplierId = 0;
+            String sPkg = "";
+            
+            boolean bAddToNewList = true;
+            
+            try
+            {
+            	sLead = pro.getLead().trim();
+            }
+            catch(Exception e)
+            {}
+            
+            try
+            {
+            	sRohs = pro.getRohs().trim();
+            }
+            catch(Exception e)
+            {}
+            
+            try
+            {
+            	mfsId = pro.getMfs_id();
+            }
+            catch(Exception e)
+            {}
+            
+            try
+            {
+            	supplierId = pro.getSupplierid();
+            }
+            catch(Exception e)
+            {}
+            
+            try
+            {
+            	sPkg = pro.getPkg();
+            }
+            catch(Exception e)
+            {}
+            
+            if(lead > 0)
+            {
+            	if(!sLead.equalsIgnoreCase("f"))
+            		bAddToNewList = false;
+            }
+            
+            if(rohs > 0)
+            {
+            	if(!sRohs.equalsIgnoreCase("t"))
+            		bAddToNewList = false;
+            }
+            
+            if(mfs_id != null)
+            {
+            	boolean bFound = false;
+            	
+            	for(Integer id:mfs_id)
+            	{
+            		if(mfsId == id)
+            		{
+            			bFound = true;
+            			break;
+            		}
+            	}
+            	
+            	if(mfs_id.size() == 0)
+            		bFound = true;
+            	
+            	if(bFound == false)
+            		bAddToNewList = false;
+            }
+            
+            if(supplier_id != null)
+            {
+            	boolean bFound = false;
+            	
+            	for(Integer id:supplier_id)
+            	{
+            		if(supplierId == id)
+            		{
+            			bFound = true;
+            			break;
+            		}
+            	}
+            	
+            	if(supplier_id.size() == 0)
+            		bFound = true;
+            	
+            	if(bFound == false)
+            		bAddToNewList = false;
+            }
+            
+            
+            if(pkg != null)
+            {
+            	boolean bFound = false;
+            	
+            	for(String pg:pkg)
+            	{
+            		if(sPkg.equalsIgnoreCase(pg))
+            		{
+            			bFound = true;
+            			break;
+            		}
+            	}
+            	
+            	if(pkg.size() == 0)
+            		bFound = true;
+            	
+            	if(bFound == false)
+            		bAddToNewList = false;
+            }
+            
+            
+            
+            if(bAddToNewList == true)
+            	newProductList.add(pro);
+        }
+		
+		
+		return newProductList;
+		
+	}
+	
+	
 	
 	public static String getAllInforByIdList(String strPn, int inventory, 
 			int lead, 

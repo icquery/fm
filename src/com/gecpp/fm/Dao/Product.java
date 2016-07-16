@@ -76,6 +76,24 @@ public class Product {
     	this.mfs_id = _mfs_id;
     }
 	
+	// 20160518深度查詢優化
+	/* 20160706 ------------------            詳情頁深度搜尋 by PN */
+		public Product(int _inventory, String _price, int _id, String _pn, String _supplierpn, String _mfs, int _supplierid, String _lead, String _rohs, int _mfs_id, String _pkg, String _name) {
+	    	this.pn = _pn;
+	    	this.id = _id;
+	    	this.mfs = _mfs;
+	    	this.inventory = _inventory;
+			this.price = _price;
+			this.supplierpn = _supplierpn;
+	    	this.supplierid = _supplierid;
+	    	this.lead = _lead;
+	    	this.rohs = _rohs;
+	    	this.mfs_id = _mfs_id;
+	    	this.pkg = _pkg;
+	    	this.supplier = _name;
+	}
+		
+	
 	public Product(int _inventory, String _price, int _id, String _pn, String _supplierpn, String _mfs, int _supplierid, String _supplier) {
     	this.pn = _pn;
     	this.id = _id;

@@ -4,8 +4,12 @@
     xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_3_0.xsd"
     id="WebApp_ID" version="3.0">
     <display-name>hessian server</display-name>
+    <listener>
+             <listener-class>com.gecpp.fm.Util.DbClose</listener-class>
+    </listener>
 <servlet>
 		<servlet-name>portal</servlet-name>
+			
 		<servlet-class>com.caucho.hessian.server.HessianServlet</servlet-class>
 		<init-param>
 			<param-name>home-class</param-name>
@@ -27,21 +31,21 @@
     	<env-entry-name>fm.param.url</env-entry-name>
     	<env-entry-type>java.lang.String</env-entry-type>
     	<!-- <env-entry-value>jdbc:postgresql://192.168.3.180:6432/fm</env-entry-value>  -->
-    	<env-entry-value>jdbc:postgresql://localhost:5432/qeindex</env-entry-value>
+    	<env-entry-value>jdbc:postgresql://192.168.3.236:5432/qeindex</env-entry-value>
 	</env-entry>
 	
 	<env-entry>
     	<env-entry-name>fm.param.user</env-entry-name>
     	<env-entry-type>java.lang.String</env-entry-type>
     	<!-- <env-entry-value>testuser</env-entry-value> -->
-    	<env-entry-value>postgres</env-entry-value>
+    	<env-entry-value>pm_reader</env-entry-value>
 	</env-entry>
 
 	<env-entry>
     	<env-entry-name>fm.param.pwd</env-entry-name>
     	<env-entry-type>java.lang.String</env-entry-type>
     	<!-- <env-entry-value>test</env-entry-value> -->
-    	<env-entry-value>123456</env-entry-value>
+    	<env-entry-value>pm_reader</env-entry-value>
 	</env-entry>
 	
 	<env-entry>
@@ -54,49 +58,49 @@
     	<env-entry-name>om.param.url</env-entry-name>
     	<env-entry-type>java.lang.String</env-entry-type>
     	<!-- <env-entry-value>jdbc:postgresql://192.168.3.42:5432/pm</env-entry-value> -->
-    	<env-entry-value>jdbc:postgresql://localhost:5432/pm2</env-entry-value>
+    	<env-entry-value>jdbc:postgresql://192.168.3.236:5433/pm</env-entry-value>
 	</env-entry>
 	
 	<env-entry>
     	<env-entry-name>om.param.user</env-entry-name>
     	<env-entry-type>java.lang.String</env-entry-type>
     	<!-- <env-entry-value>qic_pm</env-entry-value>  -->
-    	<env-entry-value>postgres</env-entry-value>
+    	<env-entry-value>pm_reader</env-entry-value>
 	</env-entry>
 
 	<env-entry>
     	<env-entry-name>om.param.pwd</env-entry-name>
     	<env-entry-type>java.lang.String</env-entry-type>
     	<!-- <env-entry-value>513116as</env-entry-value> -->
-    	<env-entry-value>123456</env-entry-value>
+    	<env-entry-value>pm_reader</env-entry-value>
 	</env-entry>
 
 
 	<env-entry>
     	<env-entry-name>om.param.redis</env-entry-name>
     	<env-entry-type>java.lang.String</env-entry-type>
-    	<env-entry-value>127.0.0.1</env-entry-value>
+    	<env-entry-value>192.168.3.221</env-entry-value>
 	</env-entry>
 	
 	<env-entry>
     	<env-entry-name>fm.param.url.debug</env-entry-name>
     	<env-entry-type>java.lang.String</env-entry-type>
-    	<!-- <env-entry-value>jdbc:postgresql://192.168.3.221:5432/qeindex</env-entry-value> -->
-    	<env-entry-value>jdbc:postgresql://192.168.3.180:5432/test</env-entry-value>
+    	<env-entry-value>jdbc:postgresql://192.168.3.221:5432/qeindex</env-entry-value>
+    	<!-- <env-entry-value>jdbc:postgresql://192.168.3.180:5432/test</env-entry-value> -->
 	</env-entry>
 	
 	<env-entry>
     	<env-entry-name>fm.param.user.debug</env-entry-name>
     	<env-entry-type>java.lang.String</env-entry-type>
-    	<!-- <env-entry-value>postgres</env-entry-value> -->
-    	<env-entry-value>testuser</env-entry-value>
+    	<env-entry-value>fm_reader</env-entry-value>
+    	<!-- <env-entry-value>testuser</env-entry-value> -->
 	</env-entry>
 
 	<env-entry>
     	<env-entry-name>fm.param.pwd.debug</env-entry-name>
     	<env-entry-type>java.lang.String</env-entry-type>
-    	<!-- <env-entry-value>123456</env-entry-value> -->
-    	<env-entry-value>test</env-entry-value>
+    	<env-entry-value>fm_reader</env-entry-value>
+    	<!-- <env-entry-value>test</env-entry-value> -->
 	</env-entry>
 	
 	<env-entry>
@@ -108,22 +112,22 @@
 	<env-entry>
     	<env-entry-name>om.param.url.debug</env-entry-name>
     	<env-entry-type>java.lang.String</env-entry-type>
-    	<!-- <env-entry-value>jdbc:postgresql://192.168.3.220:5432/pm</env-entry-value> -->
-    	<env-entry-value>jdbc:postgresql://192.168.3.88:5432/uat220</env-entry-value>
+    	<env-entry-value>jdbc:postgresql://192.168.3.236:5432/pm</env-entry-value>
+    	<!-- <env-entry-value>jdbc:postgresql://192.168.3.88:5432/uat220</env-entry-value> -->
 	</env-entry>
 	
 	<env-entry>
     	<env-entry-name>om.param.user.debug</env-entry-name>
     	<env-entry-type>java.lang.String</env-entry-type>
-    	<!-- <env-entry-value>readpm</env-entry-value> -->
-    	<env-entry-value>qic_pm</env-entry-value>
+    	<env-entry-value>pm_reader</env-entry-value>
+    	<!-- <env-entry-value>qic_pm</env-entry-value> -->
 	</env-entry>
 
 	<env-entry>
     	<env-entry-name>om.param.pwd.debug</env-entry-name>
     	<env-entry-type>java.lang.String</env-entry-type>
-    	<!-- <env-entry-value>readpm</env-entry-value> -->
-    	<env-entry-value>fhqcel!@520</env-entry-value>
+    	<env-entry-value>pm_reader</env-entry-value>
+    	<!-- <env-entry-value>fhqcel!@520</env-entry-value> -->
 	</env-entry>
 
 

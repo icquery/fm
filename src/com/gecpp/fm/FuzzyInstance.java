@@ -607,6 +607,10 @@ public class FuzzyInstance {
         	
         	pnList = PmSearchLogic.PmSearch(keyQuery);
         	
+        	// 為了修正從pm_pn中找不到的問題
+        	if(!pnList.contains(strData.toUpperCase()))
+        		pnList.add(strData.toUpperCase());
+        	
         	// 20160223 料號預先排序應該只限於排序料號
         	HashMap<String, Integer> hashPnWeight = FuzzyManagerModel.OrderPn(pnList);
     		sortedIndexResult = SortUtil.SortIndexResultSimple(hashPnWeight, 0);
@@ -730,6 +734,195 @@ public class FuzzyInstance {
 
         return result;
 	}
+    
+    
+    /* 20160706 ------------------            詳情頁深度搜尋 */
+    public OrderResultDetail QueryFuzzyRecordByDeptSearchDetail(String strData, 
+			int inventory, 
+			int lead, 
+			int rohs, 
+			List<Integer> mfs, 
+			List<Integer> abbreviation, 
+			List<String> pkg,
+			int hasStock,
+			int noStock,
+			int hasPrice,
+			int hasInquery,
+			int currentPage, 
+			int pageSize)
+	{
+        // 回傳值
+        OrderResultDetail result = null;
+     
+        // 用何種方式搜索
+        int nSearchType = 0;
+        
+        // 分析輸入的查詢
+        Keyword keyQuery = KeywordLogic.GetAnalyzedKeywords(strData);
+        // 加亮
+        String strHighLight = "";
+        for(String stoken:keyQuery.getKeyword())
+        {
+        	strHighLight += stoken + ",";
+        }
+        // Log 紀錄
+        LogQueryHistory.InsertQueryLog(keyQuery, currentPage);
+        
+        // 純料號的結果
+        List<String> pnList = new ArrayList<String>();
+        // Redis的結果
+        List<IndexResult> redisResult = new ArrayList<IndexResult>();
+        // Fuzzy的結果
+        List<IndexResult> fuzzyResult = new ArrayList<IndexResult>();
+        
+        // 料號排序的結果
+        List<IndexResult> sortedIndexResult = null;
+        
+        // 如果輸入的查詢有問題，回傳空的結果
+        if(keyQuery.getCount()== 0)
+        {
+        	result = new OrderResultDetail();
+        	result.setTotalCount(0);
+        	result.setPns(new String[0]);
+        	result.setPkg(new String[0]);
+        	result.setSupplier(new String[0]);
+        	return result;
+        }
+        
+        // 純料號的方式
+        if (keyQuery.getCount() == 1 && keyQuery.getKind().get(0).equals(KeywordKind.IsPn)) {
+        	// 計時
+        	StopWatch watch = new StopWatch("PmSearch");
+        	
+        	pnList = PmSearchLogic.PmSearch(keyQuery);
+        	
+        	// 為了修正從pm_pn中找不到的問題
+        	if(!pnList.contains(strData.toUpperCase()))
+        		pnList.add(strData.toUpperCase());
+        	
+        	// 20160223 料號預先排序應該只限於排序料號
+        	HashMap<String, Integer> hashPnWeight = FuzzyManagerModel.OrderPn(pnList);
+    		sortedIndexResult = SortUtil.SortIndexResultSimple(hashPnWeight, 0);
+        	
+        	watch.getElapseTime(keyQuery, pnList);
+        	
+        	nSearchType = 1;
+        }
+        
+        if (keyQuery.getCount() > 1) // Redis的交集
+        {
+        	StopWatch watch = new StopWatch("RedisSearch");
+        	
+        	try
+        	{
+        		redisResult = RedisSearchLogic.getRedisSearchId(keyQuery);
+        	}
+        	catch(Exception e)
+        	{
+        		List<String> sErr = new ArrayList<String>();
+        		sErr.add(e.getMessage());
+        		watch.getElapseTime(keyQuery, sErr);
+        	}
+        	watch.getElapseTimeIndexResult(keyQuery, redisResult);
+        	
+        }
+        
+     // 20160223 for more percisely pn search
+        if(pnList.size() == 0)
+        {
+	        // 不夠的再由FuzzySearch補充
+	        if(pnList.size() + redisResult.size() < 50)
+	        {
+	        	StopWatch watch = new StopWatch("FuzzySearch");
+	        	if(nSearchType == 1)	// 以純料號搜尋
+	        		fuzzyResult = FuzzySearchLogic.getFuzzySearch(keyQuery);
+	        	else
+	        	{
+	        		fuzzyResult = FuzzySearchLogic.getFuzzySearchId(keyQuery);
+	        		// reorder 
+	        		//redisResult = SortUtil.RegroupIndexResult(redisResult, fuzzyResult);
+	        		// 直接加在下面
+	        		redisResult.addAll(fuzzyResult);
+	        	}
+	        	
+	        	watch.getElapseTimeIndexResult(keyQuery, fuzzyResult);
+	        }
+        }
+        
+        
+        
+        // 利用hash排除重複
+        Map<String, Integer> uniqPn = new HashMap<String, Integer>();
+        // 交給排序模組
+        List<String> OmList = new ArrayList<String>();
+      
+        int nTotalCount = 0;
+        
+        if(nSearchType == 1) // search by pm and/or fuzzy
+        {
+        	// 最後整理出的唯一料號表
+            List<String> sPnReturn = new ArrayList<String>();
+            
+            // 純料號的先
+            for(IndexResult res : sortedIndexResult)
+            {
+            	uniqPn.put(res.getPn(), 1);
+            	sPnReturn.add(res.getPn());
+            }
+            //sPnReturn.addAll(pnList);
+            
+            // FuzzySearch
+            for(IndexResult tuple : fuzzyResult)
+            {
+            	if(!uniqPn.containsKey(tuple.getPn()))
+            	{
+            		uniqPn.put(tuple.getPn(), 1);
+            		sPnReturn.add(tuple.getPn());
+            	}
+            }
+          
+            
+            OmList.addAll(sPnReturn);
+            
+        }
+        else
+        {
+        	List<String> pageList = new ArrayList<String> ();
+        	Map<Integer, List<String>> pageMap = new HashMap<Integer, List<String>>();
+        	
+        	int nCount = 0;
+
+        	for(IndexResult tuple : redisResult)
+        	{
+        		OmList.add(tuple.getPn());
+        		
+        		nCount++;
+        		
+        		// 先取500筆以上即可
+            	if(nCount > 500)
+            		break;
+        	}
+        	
+        }
+    
+        StopWatch watch = new StopWatch("OrderManager");
+        
+        OrderManager om = new OrderManager();
+        if(nSearchType == 1)	// 以純料號搜尋
+        	result = om.getProductByGroupInStoreDeepDetail(inventory, lead, rohs, mfs, abbreviation, OmList, pkg, hasStock, noStock, hasPrice, hasInquery, currentPage, pageSize);
+        else
+        	result = om.getProductByGroupInStoreIdDeepDetail(inventory, lead, rohs, mfs, abbreviation, OmList, pkg, hasStock, noStock, hasPrice, hasInquery, currentPage, pageSize);
+        
+        watch.getElapseTimeOrderResult(keyQuery, OmList);
+
+        // 去除逗號
+        strHighLight = strHighLight.substring(0, strHighLight.length() - 1);
+        result.setHighLight(strHighLight);
+        
+        
+
+        return result;
+	}
 	
 	
 	public OrderResult QueryFuzzyRecordByListPage(String strData, int currentPage, int pageSize)
@@ -774,6 +967,10 @@ public class FuzzyInstance {
         	StopWatch watch = new StopWatch("PmSearch");
         	
         	pnList = PmSearchLogic.PmSearch(keyQuery);
+        	
+        	// 為了修正從pm_pn中找不到的問題
+        	if(!pnList.contains(strData.toUpperCase()))
+        		pnList.add(strData.toUpperCase());
         	
         	// 20160223 料號預先排序應該只限於排序料號
         	HashMap<String, Integer> hashPnWeight = FuzzyManagerModel.OrderPn(pnList);

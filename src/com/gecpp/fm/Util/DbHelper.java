@@ -161,8 +161,8 @@ public class DbHelper {
 		
 			        // the settings below are optional -- c3p0 can work with defaults
 					cpdsFm.setMinPoolSize(10);
-					cpdsFm.setAcquireIncrement(10);
-					cpdsFm.setMaxPoolSize(80);
+					cpdsFm.setAcquireIncrement(20);
+					cpdsFm.setMaxPoolSize(200);
 					cpdsFm.setMaxStatements(200);
 					
 					cpdsFm.setMaxIdleTime(60);
@@ -323,8 +323,8 @@ public class DbHelper {
 		
 			        // the settings below are optional -- c3p0 can work with defaults
 					cpdsPm.setMinPoolSize(10);
-					cpdsPm.setAcquireIncrement(10);
-					cpdsPm.setMaxPoolSize(80);
+					cpdsPm.setAcquireIncrement(20);
+					cpdsPm.setMaxPoolSize(200);
 					cpdsPm.setMaxStatements(200);
 					
 					cpdsPm.setMaxIdleTime(60);

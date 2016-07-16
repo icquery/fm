@@ -157,5 +157,26 @@ public class ServiceImpl extends HessianServlet implements IFuzzySearch {
 		
 		return result;
 	}
+	
+	@Override
+	public OrderResultDetail QueryFuzzyRecordByDeptSearchDetail(String strData, 
+			int inventory, 
+			int lead, 
+			int rohs, 
+			List<Integer> mfs, 
+			List<Integer> abbreviation, 
+			List<String> pkg,
+			int hasStock,
+			int noStock,
+			int hasPrice,
+			int hasInquery,
+			int currentPage, 
+			int pageSize)
+	{
+		FuzzyInstance fi = new FuzzyInstance();
+		OrderResultDetail result = fi.QueryFuzzyRecordByDeptSearchDetail(strData, inventory, lead, rohs, mfs, abbreviation, pkg, hasStock, noStock, hasPrice, hasInquery, currentPage, pageSize);
+		
+		return result;
+	}
 }
 

@@ -98,6 +98,13 @@ public class SortUtil {
             	//if(item.getPrice() != null)
             	//	if(!item.getPrice().isEmpty())
             			count++;
+            	/*
+            	// 20160516 count all for 
+            	if(item.getPrice() != null)
+            		if(!item.getPrice().isEmpty())
+            			count++;
+            			
+            	*/
             }
 			pnWeight.put(group_entry.getKey(), count);
 		}

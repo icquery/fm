@@ -79,6 +79,23 @@ public interface IFuzzySearch {
 	 * getProductByMultipleSearchJson，2016/05/17  多料号搜索入口新页面需求
 	 */
 	public Map<String,Map<String,MultipleParam>> findParamByPn(List<String> pns);
+	
+	/**
+	 * QueryFuzzyRecordByDeptSearchDetail，2016/07/06  詳情頁查詢
+	 */
+	public OrderResultDetail QueryFuzzyRecordByDeptSearchDetail(String strData, 
+			int inventory, 
+			int lead, 
+			int rohs, 
+			List<Integer> mfs, 
+			List<Integer> abbreviation, 
+			List<String> pkg,
+			int hasStock,
+			int noStock,
+			int hasPrice,
+			int hasInquery,
+			int currentPage, 
+			int pageSize);
 }
 
 
