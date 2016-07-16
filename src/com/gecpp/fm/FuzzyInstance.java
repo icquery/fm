@@ -1,6 +1,32 @@
 package com.gecpp.fm;
 
+import java.io.IOException;
 import java.sql.Connection;
+
+import org.json.*;
+
+import com.gecpp.fm.Dao.IndexAdj;
+import com.gecpp.fm.Dao.IndexRate;
+import com.gecpp.fm.Dao.IndexResult;
+import com.gecpp.fm.Dao.IndexShort;
+import com.gecpp.fm.Dao.Keyword;
+import com.gecpp.fm.Dao.MultiKeyword;
+import com.gecpp.fm.Dao.Product;
+import com.gecpp.fm.Dao.Keyword.KeywordKind;
+import com.gecpp.fm.Dao.Keyword.NLP;
+import com.gecpp.fm.Logic.FuzzySearchLogic;
+import com.gecpp.fm.Logic.KeywordLogic;
+import com.gecpp.fm.Logic.PmSearchLogic;
+import com.gecpp.fm.Logic.RedisSearchLogic;
+import com.gecpp.fm.Util.CommonUtil;
+import com.gecpp.fm.Util.DbHelper;
+import com.gecpp.fm.Util.LogQueryHistory;
+import com.gecpp.fm.Util.SortUtil;
+import com.gecpp.fm.Util.StopWatch;
+import com.gecpp.fm.model.FuzzyManagerModel;
+import com.gecpp.om.OrderManager;
+
+import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -8,12 +34,21 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.logging.FileHandler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
+
+import javax.naming.Context;
+import javax.naming.InitialContext;
+import javax.naming.NamingException;
 
 import edu.stanford.nlp.ie.crf.CRFClassifier;
 import edu.stanford.nlp.ling.CoreLabel;
@@ -72,16 +107,74 @@ class OrdComparator implements Comparator<Integer> {
 
 public class FuzzyInstance {
 	
+	
 	private String strSkipWord = ", . ; + - | / \\ ' \" : ? < > [ ] { } ! @ # $ % ^ & * ( ) ~ ` _ － ‐ ， （ ）";
 	private String[] SkipWord = null;
 	
-	public int DeleteFuzzyRecord(int pid, Connection conn) {
+	
+	
+	
+	private List<String> getNotRepeatPns(List<String> pns, List<String> fuzzyPns) {
+        List<String> notRepeatPns = new ArrayList<>();
+        Set<String> pnSet = new HashSet<>();
+        pnSet.addAll(pns);
+        for (int i = 0; i < fuzzyPns.size() && pnSet.size() < 20; i++) {
+            pnSet.add(fuzzyPns.get(i));
+        }
+        notRepeatPns.addAll(pnSet);
+
+        return notRepeatPns;
+    }
+	
+	
+	
+	/**
+     * create by lhp 2015-07-20 copy from qegoo
+     * 根据pn生成pn_key
+     *
+     * @param pn
+     * @return
+     */
+    
+    
+    private String parsePnKeyForSearch(String pn) {
+        String pnKey = pn;
+
+        pnKey = pnKey.replaceAll("\"", "&quot;");
+        pnKey = pnKey.replaceAll("\'", "&apos;");
+        pnKey = pnKey.trim();
+
+        pnKey = org.apache.commons.lang3.StringUtils.replaceEach(pnKey,
+                new String[]{" ", "/", "+", "?", "%", "#", "&", "=", "-", "(", ")", "\'", ".", "quot;", "apos;", "\""},
+                new String[]{"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""});
+
+        pnKey = pnKey.replace("|", "/"); // 对在页面里将modelname中/转换成|,在此处转换回/
+        pnKey = pnKey.replace("<", "");
+        pnKey = pnKey.replace(">", "");
+
+        // 去除传参前后空格
+        pnKey = pnKey.toUpperCase().trim();
+        //pnKey = pnKey + "%";
+
+        return pnKey;
+    }
+	
+	
+	
+	
+
+
+    
+	
+	public int DeleteFuzzyRecord(int pid) {
 		String strSql = "delete from qeindex where page = " + pid;
 
+		Connection conn = DbHelper.connectFm();
+		
 		execUpdate(strSql, conn);
 		
-		attemptClose(conn);
-		return 0;
+		DbHelper.attemptClose(conn);
+		return 1;
 	}
 	
 	public int InsertFuzzyRecord(int pid, String pn, String mfs,
@@ -94,9 +187,9 @@ public class FuzzyInstance {
 		
 		ProcessData(sPid, pn, mfs, catalog, description, param, conn, segmenter);
 		
-		attemptClose(conn);
+		DbHelper.attemptClose(conn);
 		
-		return 0;
+		return 1;
 	}
 	
 	protected void ProcessData(String pid, String pn, String mfs,
@@ -110,99 +203,986 @@ public class FuzzyInstance {
 			param.replaceAll("[\"\']", "");
  
 		// 料號
-		scoreMap = segmentData(pn, segmenter);
+        //scoreMap = segmentData(pn);
 
-		// 料號需有完整紀錄
-		if (!scoreMap.containsKey(pn)) {
-			InsertPostgrel(pn, Integer.parseInt(pid), 1, 0, pn, mfs, catalog, pn, conn);
-		}
+        // 料號需有完整紀錄
+        //if(!scoreMap.containsKey(pn))
+        //{
+        InsertPostgrel(pn.toUpperCase(),
+                Integer.parseInt(pid),
+                1,
+                0, pn, mfs, catalog, pn, conn);
+        //}
 
-		InsertAllWord(pid, 0, pn,mfs, catalog, scoreMap, conn);
+        //InsertAllWord(pid, 0, pn, mfs, catalog, scoreMap);
 
-		// mfs
-		scoreMap = segmentData(mfs, segmenter);
-		InsertAllWord(pid, 1, pn,mfs, catalog, scoreMap, conn);
+        // mfs
+        scoreMap = segmentData(mfs, segmenter);
+        InsertAllWord(pid, 1, pn, mfs, catalog, scoreMap, conn);
 
-		// catalog
-		scoreMap = segmentData(catalog, segmenter);
-		InsertAllWord(pid, 2, pn,mfs, catalog, scoreMap, conn);
+        // catalog
+        scoreMap = segmentDataCatalog(catalog);
+        InsertAllWord(pid, 2, pn, mfs, catalog, scoreMap, conn);
 
-		// description
-		scoreMap = segmentData(description, segmenter);
-		InsertAllWord(pid, 3, pn,mfs, catalog, scoreMap, conn);
+        // description
+        scoreMap = segmentDataDDesc(description);
+        InsertAllWord(pid, 3, pn, mfs, catalog, scoreMap, conn);
 
-		// param
-		scoreMap = segmentData(param, segmenter);
-		InsertAllWord(pid, 4, pn,mfs, catalog, scoreMap, conn);
+        // param
+        scoreMap = segmentDataParam(param);
+        InsertAllWord(pid, 4, pn, mfs, catalog, scoreMap, conn);
 		
 		
 	}
 	
-	protected List<IndexAdj> GetAdjust(Connection conn)
+	
+	protected Map<String, String> segmentDataCatalog(String strData)
+    {
+        String [] strFullword = null;
+
+        List<String> sList = new ArrayList<String>();
+        List<String> sFullword = new ArrayList<String>();
+
+        Map<String, String> scoreMap = new HashMap<String, String>();
+
+        String val = null;
+
+        val = strData;
+
+
+        if (val != null) {
+
+            val = val.toUpperCase();
+
+            val = val.trim();
+
+            val = val.replace("，", " ");
+
+            val = val.replace(">", " ");
+
+            strFullword = val.split(" ");
+
+            if(strFullword != null) {
+                for (String stoken : strFullword) {
+
+
+
+                    stoken = stoken.replace(" ", "");
+
+                    if (SkipWord(stoken) || stoken.length() == 0)
+                        continue;
+
+
+                    if (stoken.trim() == "")
+                        continue;
+
+                    //InsertPostgrel(stoken, Integer.parseInt(pid), 1, 4, pn, mfs, catalog, val);
+                    sList.add(stoken);
+                    sFullword.add(val);
+                }
+            }
+
+        }
+
+
+        for(int i=0; i<sList.size(); i++)
+        {
+            float weight = 0.0f;
+
+            weight = (float)similarity(sList.get(i), sFullword.get(i));
+
+
+            if(scoreMap.containsKey(sList.get(i).toUpperCase()))
+            {
+
+                String sValue = scoreMap.get(sList.get(i).toUpperCase());
+                String [] token = sValue.split(",");
+
+                double score = Double.parseDouble(token[0]);
+
+                // 取最大值
+                if(score < weight)
+                    score = weight;
+
+                String s = Double.toString(score);
+
+                if(s.length() > 4)
+                    s = s.substring(0, 4);
+
+                s += "," + sFullword.get(i);
+
+                scoreMap.put(sList.get(i).toUpperCase(), s);
+
+            }
+            else {
+                String s = Float.toString(weight) + "," + sFullword.get(i);
+                scoreMap.put(sList.get(i).toUpperCase(), s);
+            }
+        }
+
+        return scoreMap;
+
+    }
+
+    protected Map<String, String> segmentDataDDesc(String strData)
+    {
+        String [] strFullword = null;
+
+        List<String> sList = new ArrayList<String>();
+        List<String> sFullword = new ArrayList<String>();
+
+        Map<String, String> scoreMap = new HashMap<String, String>();
+
+        String val = null;
+
+        val = strData;
+
+
+        if (val != null) {
+
+            val = val.toUpperCase();
+
+            val = val.trim();
+
+            val = val.replace("，", " ");
+
+
+            strFullword = val.split(" ");
+
+            if(strFullword != null) {
+                for (String stoken : strFullword) {
+
+
+                    stoken = stoken.replace(" ", "");
+
+                    if (SkipWord(stoken) || stoken.length() == 0)
+                        continue;
+
+                    if (stoken.trim() == "")
+                        continue;
+
+                    //InsertPostgrel(stoken, Integer.parseInt(pid), 1, 4, pn, mfs, catalog, val);
+                    sList.add(stoken);
+                    sFullword.add(val);
+                }
+            }
+
+        }
+
+
+        for(int i=0; i<sList.size(); i++)
+        {
+            float weight = 0.0f;
+
+            weight = (float)similarity(sList.get(i), sFullword.get(i));
+
+
+            if(scoreMap.containsKey(sList.get(i).toUpperCase()))
+            {
+
+                String sValue = scoreMap.get(sList.get(i).toUpperCase());
+                String [] token = sValue.split(",");
+
+                double score = Double.parseDouble(token[0]);
+
+                // 取最大值
+                if(score < weight)
+                    score = weight;
+
+                String s = Double.toString(score);
+
+                if(s.length() > 4)
+                    s = s.substring(0, 4);
+
+                s += "," + sFullword.get(i);
+
+                scoreMap.put(sList.get(i).toUpperCase(), s);
+
+            }
+            else {
+                String s = Float.toString(weight) + "," + sFullword.get(i);
+                scoreMap.put(sList.get(i).toUpperCase(), s);
+            }
+        }
+
+        return scoreMap;
+
+    }
+
+    protected Map<String, String> segmentDataParam(String strData)
+    {
+        String [] strFullword = null;
+
+        List<String> sList = new ArrayList<String>();
+        List<String> sFullword = new ArrayList<String>();
+
+        Map<String, String> scoreMap = new HashMap<String, String>();
+
+        if(strData != null && !strData.isEmpty()) {
+
+            try {
+                JSONObject json = new JSONObject(strData);
+
+                Iterator<String> keys = json.keys();
+                while (keys.hasNext()) {
+                    String key = keys.next();
+                    String val = null;
+                    try {
+                        val = json.getString(key);
+                    } catch (Exception e) {
+                        System.out.println(e.toString());
+                    }
+
+                    if (val != null) {
+
+                        val = val.toUpperCase();
+
+                        val = val.trim();
+
+                        val = val.replace("，", " ");
+
+                        if (val.contains("HTTP"))
+                            continue;
+
+                        if (val.contains("PDF"))
+                            continue;
+
+                        strFullword = val.split(" ");
+
+                        if (strFullword != null) {
+                            for (String stoken : strFullword) {
+
+
+
+                                stoken = stoken.replace(" ", "");
+
+                                if (SkipWord(stoken) || stoken.length() == 0)
+                                    continue;
+
+                                if (stoken.trim() == "")
+                                    continue;
+
+                                //InsertPostgrel(stoken, Integer.parseInt(pid), 1, 4, pn, mfs, catalog, val);
+                                sList.add(stoken);
+                                sFullword.add(val);
+                            }
+                        }
+
+                    }
+
+
+                }
+            } catch (JSONException e) {
+                return scoreMap;
+            }
+
+            for (int i = 0; i < sList.size(); i++) {
+                float weight = 0.0f;
+
+                weight = (float) similarity(sList.get(i), sFullword.get(i));
+
+
+                if (scoreMap.containsKey(sList.get(i).toUpperCase())) {
+
+                    String sValue = scoreMap.get(sList.get(i).toUpperCase());
+                    String[] token = sValue.split(",");
+
+                    double score = 0.0;
+                    try{
+                        score = Double.parseDouble(token[0]);
+                    }
+                    catch (NumberFormatException e)
+                    {}
+
+                    // 取最大值
+                    if (score < weight)
+                        score = weight;
+
+                    String s = Double.toString(score);
+
+                    if (s.length() > 4)
+                        s = s.substring(0, 4);
+
+                    s += "," + sFullword.get(i);
+
+                    scoreMap.put(sList.get(i).toUpperCase(), s);
+
+                } else {
+                    String s = Float.toString(weight) + "," + sFullword.get(i);
+                    scoreMap.put(sList.get(i).toUpperCase(), s);
+                }
+            }
+        }
+
+        return scoreMap;
+
+    }
+    
+    protected double similarity(String s1, String s2) {
+        String longer = s1, shorter = s2;
+        if (s1.length() < s2.length()) { // longer should always have greater length
+            longer = s2; shorter = s1;
+        }
+        int longerLength = longer.length();
+        if (longerLength == 0) { return 1.0; /* both strings are zero length */ }
+        return (longerLength - editDistance(longer, shorter)) / (double) longerLength;
+    }
+
+    protected int editDistance(String s1, String s2) {
+        s1 = s1.toLowerCase();
+        s2 = s2.toLowerCase();
+
+        int[] costs = new int[s2.length() + 1];
+        for (int i = 0; i <= s1.length(); i++) {
+            int lastValue = i;
+            for (int j = 0; j <= s2.length(); j++) {
+                if (i == 0)
+                    costs[j] = j;
+                else {
+                    if (j > 0) {
+                        int newValue = costs[j - 1];
+                        if (s1.charAt(i - 1) != s2.charAt(j - 1))
+                            newValue = Math.min(Math.min(newValue, lastValue),
+                                    costs[j]) + 1;
+                        costs[j - 1] = lastValue;
+                        lastValue = newValue;
+                    }
+                }
+            }
+            if (i > 0)
+                costs[s2.length()] = lastValue;
+        }
+        return costs[s2.length()];
+    }
+	
+    public OrderResult QueryFuzzyRecordByDeptSearch(String strData, 
+			int inventory, 
+			int lead, 
+			int rohs, 
+			List<Integer> mfs, 
+			List<Integer> abbreviation, 
+			int currentPage, 
+			int pageSize)
 	{
-		String strSql = "select word, alterword, kind, adjust from qeindexadj";
-		
-		List<IndexAdj> sList = new ArrayList<IndexAdj>();
+        // 回傳值
+        OrderResult result = null;
+     
+        // 用何種方式搜索
+        int nSearchType = 0;
+        
+        // 分析輸入的查詢
+        Keyword keyQuery = KeywordLogic.GetAnalyzedKeywords(strData);
+        // 加亮
+        String strHighLight = "";
+        for(String stoken:keyQuery.getKeyword())
+        {
+        	strHighLight += stoken + ",";
+        }
+        // Log 紀錄
+        LogQueryHistory.InsertQueryLog(keyQuery, currentPage);
+        
+        // 純料號的結果
+        List<String> pnList = new ArrayList<String>();
+        // Redis的結果
+        List<IndexResult> redisResult = new ArrayList<IndexResult>();
+        // Fuzzy的結果
+        List<IndexResult> fuzzyResult = new ArrayList<IndexResult>();
+        
+        // 料號排序的結果
+        List<IndexResult> sortedIndexResult = null;
+        
+        // 如果輸入的查詢有問題，回傳空的結果
+        if(keyQuery.getCount()== 0)
+        {
+        	result = new OrderResult();
+        	result.setTotalCount(0);
+        	result.setPns(new String[0]);
+        	return result;
+        }
+        
+        // 純料號的方式
+        if (keyQuery.getCount() == 1 && keyQuery.getKind().get(0).equals(KeywordKind.IsPn)) {
+        	// 計時
+        	StopWatch watch = new StopWatch("PmSearch");
+        	
+        	pnList = PmSearchLogic.PmSearch(keyQuery);
+        	
+        	// 為了修正從pm_pn中找不到的問題
+        	if(!pnList.contains(strData.toUpperCase()))
+        		pnList.add(strData.toUpperCase());
+        	
+        	// 20160223 料號預先排序應該只限於排序料號
+        	HashMap<String, Integer> hashPnWeight = FuzzyManagerModel.OrderPn(pnList);
+    		sortedIndexResult = SortUtil.SortIndexResultSimple(hashPnWeight, 0);
+        	
+        	watch.getElapseTime(keyQuery, pnList);
+        	
+        	nSearchType = 1;
+        }
+        
+        if (keyQuery.getCount() > 1) // Redis的交集
+        {
+        	StopWatch watch = new StopWatch("RedisSearch");
+        	
+        	try
+        	{
+        		redisResult = RedisSearchLogic.getRedisSearchId(keyQuery);
+        	}
+        	catch(Exception e)
+        	{
+        		List<String> sErr = new ArrayList<String>();
+        		sErr.add(e.getMessage());
+        		watch.getElapseTime(keyQuery, sErr);
+        	}
+        	watch.getElapseTimeIndexResult(keyQuery, redisResult);
+        	
+        }
+        
+     // 20160223 for more percisely pn search
+        if(pnList.size() == 0)
+        {
+	        // 不夠的再由FuzzySearch補充
+	        if(pnList.size() + redisResult.size() < 50)
+	        {
+	        	StopWatch watch = new StopWatch("FuzzySearch");
+	        	if(nSearchType == 1)	// 以純料號搜尋
+	        		fuzzyResult = FuzzySearchLogic.getFuzzySearch(keyQuery);
+	        	else
+	        	{
+	        		fuzzyResult = FuzzySearchLogic.getFuzzySearchId(keyQuery);
+	        		// reorder 
+	        		//redisResult = SortUtil.RegroupIndexResult(redisResult, fuzzyResult);
+	        		// 直接加在下面
+	        		redisResult.addAll(fuzzyResult);
+	        	}
+	        	
+	        	watch.getElapseTimeIndexResult(keyQuery, fuzzyResult);
+	        }
+        }
+        
+        
+        
+        // 利用hash排除重複
+        Map<String, Integer> uniqPn = new HashMap<String, Integer>();
+        // 交給排序模組
+        List<String> OmList = new ArrayList<String>();
+      
+        int nTotalCount = 0;
+        
+        if(nSearchType == 1) // search by pm and/or fuzzy
+        {
+        	// 最後整理出的唯一料號表
+            List<String> sPnReturn = new ArrayList<String>();
+            
+            // 純料號的先
+            for(IndexResult res : sortedIndexResult)
+            {
+            	uniqPn.put(res.getPn(), 1);
+            	sPnReturn.add(res.getPn());
+            }
+            //sPnReturn.addAll(pnList);
+            
+            // FuzzySearch
+            for(IndexResult tuple : fuzzyResult)
+            {
+            	if(!uniqPn.containsKey(tuple.getPn()))
+            	{
+            		uniqPn.put(tuple.getPn(), 1);
+            		sPnReturn.add(tuple.getPn());
+            	}
+            }
+          
+            
+            OmList.addAll(sPnReturn);
+            
+        }
+        else
+        {
+        	List<String> pageList = new ArrayList<String> ();
+        	Map<Integer, List<String>> pageMap = new HashMap<Integer, List<String>>();
+        	
+        	int nCount = 0;
 
-		try {
+        	for(IndexResult tuple : redisResult)
+        	{
+        		OmList.add(tuple.getPn());
+        		
+        		nCount++;
+        		
+        		// 先取500筆以上即可
+            	if(nCount > 500)
+            		break;
+        	}
+        	
+        }
+    
+        StopWatch watch = new StopWatch("OrderManager");
+        
+        OrderManager om = new OrderManager();
+        if(nSearchType == 1)	// 以純料號搜尋
+        	result = om.getProductByGroupInStoreDeep(inventory, lead, rohs, mfs, abbreviation, OmList, currentPage, pageSize);
+        else
+        	result = om.getProductByGroupInStoreIdDeep(inventory, lead, rohs, mfs, abbreviation, OmList, currentPage, pageSize);
+        
+        watch.getElapseTimeOrderResult(keyQuery, OmList);
 
-			Statement stmt = null;
-			ResultSet rs = null;
+        // 去除逗號
+        strHighLight = strHighLight.substring(0, strHighLight.length() - 1);
+        result.setHighLight(strHighLight);
+        
+        
 
-			try {
-				stmt = conn.createStatement();
-				rs = stmt.executeQuery(strSql);
-				while (rs.next())
-					sList.add(new IndexAdj(rs.getString(1), rs.getString(2), rs.getInt(3), rs.getFloat(4)));
-				// System.out.println(rs.getString(0));
-			}
+        return result;
+	}
+    
+    
+    /* 20160706 ------------------            詳情頁深度搜尋 */
+    public OrderResultDetail QueryFuzzyRecordByDeptSearchDetail(String strData, 
+			int inventory, 
+			int lead, 
+			int rohs, 
+			List<Integer> mfs, 
+			List<Integer> abbreviation, 
+			List<String> pkg,
+			int hasStock,
+			int noStock,
+			int hasPrice,
+			int hasInquery,
+			int currentPage, 
+			int pageSize)
+	{
+        // 回傳值
+        OrderResultDetail result = null;
+     
+        // 用何種方式搜索
+        int nSearchType = 0;
+        
+        // 分析輸入的查詢
+        Keyword keyQuery = KeywordLogic.GetAnalyzedKeywords(strData);
+        // 加亮
+        String strHighLight = "";
+        for(String stoken:keyQuery.getKeyword())
+        {
+        	strHighLight += stoken + ",";
+        }
+        // Log 紀錄
+        LogQueryHistory.InsertQueryLog(keyQuery, currentPage);
+        
+        // 純料號的結果
+        List<String> pnList = new ArrayList<String>();
+        // Redis的結果
+        List<IndexResult> redisResult = new ArrayList<IndexResult>();
+        // Fuzzy的結果
+        List<IndexResult> fuzzyResult = new ArrayList<IndexResult>();
+        
+        // 料號排序的結果
+        List<IndexResult> sortedIndexResult = null;
+        
+        // 如果輸入的查詢有問題，回傳空的結果
+        if(keyQuery.getCount()== 0)
+        {
+        	result = new OrderResultDetail();
+        	result.setTotalCount(0);
+        	result.setPns(new String[0]);
+        	result.setPkg(new String[0]);
+        	result.setSupplier(new String[0]);
+        	return result;
+        }
+        
+        // 純料號的方式
+        if (keyQuery.getCount() == 1 && keyQuery.getKind().get(0).equals(KeywordKind.IsPn)) {
+        	// 計時
+        	StopWatch watch = new StopWatch("PmSearch");
+        	
+        	pnList = PmSearchLogic.PmSearch(keyQuery);
+        	
+        	// 為了修正從pm_pn中找不到的問題
+        	if(!pnList.contains(strData.toUpperCase()))
+        		pnList.add(strData.toUpperCase());
+        	
+        	// 20160223 料號預先排序應該只限於排序料號
+        	HashMap<String, Integer> hashPnWeight = FuzzyManagerModel.OrderPn(pnList);
+    		sortedIndexResult = SortUtil.SortIndexResultSimple(hashPnWeight, 0);
+        	
+        	watch.getElapseTime(keyQuery, pnList);
+        	
+        	nSearchType = 1;
+        }
+        
+        if (keyQuery.getCount() > 1) // Redis的交集
+        {
+        	StopWatch watch = new StopWatch("RedisSearch");
+        	
+        	try
+        	{
+        		redisResult = RedisSearchLogic.getRedisSearchId(keyQuery);
+        	}
+        	catch(Exception e)
+        	{
+        		List<String> sErr = new ArrayList<String>();
+        		sErr.add(e.getMessage());
+        		watch.getElapseTime(keyQuery, sErr);
+        	}
+        	watch.getElapseTimeIndexResult(keyQuery, redisResult);
+        	
+        }
+        
+     // 20160223 for more percisely pn search
+        if(pnList.size() == 0)
+        {
+	        // 不夠的再由FuzzySearch補充
+	        if(pnList.size() + redisResult.size() < 50)
+	        {
+	        	StopWatch watch = new StopWatch("FuzzySearch");
+	        	if(nSearchType == 1)	// 以純料號搜尋
+	        		fuzzyResult = FuzzySearchLogic.getFuzzySearch(keyQuery);
+	        	else
+	        	{
+	        		fuzzyResult = FuzzySearchLogic.getFuzzySearchId(keyQuery);
+	        		// reorder 
+	        		//redisResult = SortUtil.RegroupIndexResult(redisResult, fuzzyResult);
+	        		// 直接加在下面
+	        		redisResult.addAll(fuzzyResult);
+	        	}
+	        	
+	        	watch.getElapseTimeIndexResult(keyQuery, fuzzyResult);
+	        }
+        }
+        
+        
+        
+        // 利用hash排除重複
+        Map<String, Integer> uniqPn = new HashMap<String, Integer>();
+        // 交給排序模組
+        List<String> OmList = new ArrayList<String>();
+      
+        int nTotalCount = 0;
+        
+        if(nSearchType == 1) // search by pm and/or fuzzy
+        {
+        	// 最後整理出的唯一料號表
+            List<String> sPnReturn = new ArrayList<String>();
+            
+            // 純料號的先
+            for(IndexResult res : sortedIndexResult)
+            {
+            	uniqPn.put(res.getPn(), 1);
+            	sPnReturn.add(res.getPn());
+            }
+            //sPnReturn.addAll(pnList);
+            
+            // FuzzySearch
+            for(IndexResult tuple : fuzzyResult)
+            {
+            	if(!uniqPn.containsKey(tuple.getPn()))
+            	{
+            		uniqPn.put(tuple.getPn(), 1);
+            		sPnReturn.add(tuple.getPn());
+            	}
+            }
+          
+            
+            OmList.addAll(sPnReturn);
+            
+        }
+        else
+        {
+        	List<String> pageList = new ArrayList<String> ();
+        	Map<Integer, List<String>> pageMap = new HashMap<Integer, List<String>>();
+        	
+        	int nCount = 0;
 
-			finally {
+        	for(IndexResult tuple : redisResult)
+        	{
+        		OmList.add(tuple.getPn());
+        		
+        		nCount++;
+        		
+        		// 先取500筆以上即可
+            	if(nCount > 500)
+            		break;
+        	}
+        	
+        }
+    
+        StopWatch watch = new StopWatch("OrderManager");
+        
+        OrderManager om = new OrderManager();
+        if(nSearchType == 1)	// 以純料號搜尋
+        	result = om.getProductByGroupInStoreDeepDetail(inventory, lead, rohs, mfs, abbreviation, OmList, pkg, hasStock, noStock, hasPrice, hasInquery, currentPage, pageSize);
+        else
+        	result = om.getProductByGroupInStoreIdDeepDetail(inventory, lead, rohs, mfs, abbreviation, OmList, pkg, hasStock, noStock, hasPrice, hasInquery, currentPage, pageSize);
+        
+        watch.getElapseTimeOrderResult(keyQuery, OmList);
 
-				attemptClose(rs);
-				attemptClose(stmt);
+        // 去除逗號
+        strHighLight = strHighLight.substring(0, strHighLight.length() - 1);
+        result.setHighLight(strHighLight);
+        
+        
 
-			}
-
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-
-		return sList;
+        return result;
 	}
 	
-	protected List<IndexShort> GetShort(Connection conn)
+	
+	public OrderResult QueryFuzzyRecordByListPage(String strData, int currentPage, int pageSize)
 	{
-		String strSql = "select word, alterword from qeindexshort";
-		
-		List<IndexShort> sList = new ArrayList<IndexShort>();
+        // 回傳值
+        OrderResult result = null;
+     
+        // 用何種方式搜索
+        int nSearchType = 0;
+        
+        // 分析輸入的查詢
+        Keyword keyQuery = KeywordLogic.GetAnalyzedKeywords(strData);
+        // 加亮
+        String strHighLight = "";
+        for(String stoken:keyQuery.getKeyword())
+        {
+        	strHighLight += stoken + ",";
+        }
+        // Log 紀錄
+        LogQueryHistory.InsertQueryLog(keyQuery, currentPage);
+        
+        // 純料號的結果
+        List<String> pnList = new ArrayList<String>();
+        // Redis的結果
+        List<IndexResult> redisResult = new ArrayList<IndexResult>();
+        // Fuzzy的結果
+        List<IndexResult> fuzzyResult = new ArrayList<IndexResult>();
+        // 料號排序的結果
+        List<IndexResult> sortedIndexResult = null;
+        
+        // 如果輸入的查詢有問題，回傳空的結果
+        if(keyQuery.getCount()== 0)
+        {
+        	result = new OrderResult();
+        	result.setTotalCount(0);
+        	return result;
+        }
+        
+        // 純料號的方式
+        if (keyQuery.getCount() == 1 && keyQuery.getKind().get(0).equals(KeywordKind.IsPn)) {
+        	// 計時
+        	StopWatch watch = new StopWatch("PmSearch");
+        	
+        	pnList = PmSearchLogic.PmSearch(keyQuery);
+        	
+        	// 為了修正從pm_pn中找不到的問題
+        	if(!pnList.contains(strData.toUpperCase()))
+        		pnList.add(strData.toUpperCase());
+        	
+        	// 20160223 料號預先排序應該只限於排序料號
+        	HashMap<String, Integer> hashPnWeight = FuzzyManagerModel.OrderPn(pnList);
+    		sortedIndexResult = SortUtil.SortIndexResultSimple(hashPnWeight, 0);
+        	
+        	watch.getElapseTime(keyQuery, pnList);
+        	
+        	nSearchType = 1;
+        }
+        
+        if (keyQuery.getCount() > 1) // Redis的交集
+        {
+        	StopWatch watch = new StopWatch("RedisSearch");
+        	
+        	try
+        	{
+        		redisResult = RedisSearchLogic.getRedisSearchId(keyQuery);
+        	}
+        	catch(Exception e)
+        	{
+        		List<String> sErr = new ArrayList<String>();
+        		sErr.add(e.getMessage());
+        		watch.getElapseTime(keyQuery, sErr);
+        	}
+        	watch.getElapseTimeIndexResult(keyQuery, redisResult);
+        	
+        }
+        
+        // 20160223 for more percisely pn search
+        if(pnList.size() == 0)
+        {
+	        // 不夠的再由FuzzySearch補充
+	        if(pnList.size() + redisResult.size() < 50)
+	        {
+	        	StopWatch watch = new StopWatch("FuzzySearch");
+	        	if(nSearchType == 1)	// 以純料號搜尋
+	        		fuzzyResult = FuzzySearchLogic.getFuzzySearch(keyQuery);
+	        	else
+	        	{
+	        		fuzzyResult = FuzzySearchLogic.getFuzzySearchId(keyQuery);
+	        		// reorder 
+	        		//redisResult = SortUtil.RegroupIndexResult(redisResult, fuzzyResult);
+	        		// 直接加在下面
+	        		redisResult.addAll(fuzzyResult);
+	        	}
+	        	
+	        	watch.getElapseTimeIndexResult(keyQuery, fuzzyResult);
+	        }
+        }
+        
+        
+        
+        // 利用hash排除重複
+        Map<String, Integer> uniqPn = new HashMap<String, Integer>();
+        // 交給排序模組
+        List<String> OmList = new ArrayList<String>();
+      
+        int nTotalCount = 0;
+        
+        if(nSearchType == 1) // search by pm and/or fuzzy
+        {
+        	// 最後整理出的唯一料號表
+            List<String> sPnReturn = new ArrayList<String>();
+            
+            // 純料號的先
+            for(IndexResult res : sortedIndexResult)
+            {
+            	uniqPn.put(res.getPn(), 1);
+            	sPnReturn.add(res.getPn());
+            }
+            //sPnReturn.addAll(pnList);
+            
+            // FuzzySearch
+            for(IndexResult tuple : fuzzyResult)
+            {
+            	if(!uniqPn.containsKey(tuple.getPn()))
+            	{
+            		uniqPn.put(tuple.getPn(), 1);
+            		sPnReturn.add(tuple.getPn());
+            	}
+            }
+            
+            //// 20160127 料號預先排序
+    		//HashMap<String, Integer> hashPnWeight = FuzzyManagerModel.OrderPn(sPnReturn);
+    		//List<IndexResult> sortedIndexResult = SortUtil.SortIndexResultSimple(hashPnWeight, 0);
+    		
+    		// 20160129 改用深度搜尋的分頁法
+    		//for(IndexResult res : sortedIndexResult)
+    		OmList.addAll(sPnReturn);
+    		
+    		//for(int i=(currentPage - 1) * pageSize; i < currentPage * pageSize; i++)
+            //{
+            //	if(i<sortedIndexResult.size())
+            //	{
+            //		OmList.add(sortedIndexResult.get(i).getPn());
+            //	}
+            //}
+            
+            //nTotalCount = sortedIndexResult.size();
+          
+            
+            //for(int i=(currentPage - 1) * pageSize; i < currentPage * pageSize; i++)
+            //{
+            //	if(i<sPnReturn.size())
+            //	{
+            //		OmList.add(sPnReturn.get(i));
+            //	}
+            //}
+            
+            //nTotalCount = sPnReturn.size();
+        }
+        else
+        {
+        	List<String> pageList = new ArrayList<String> ();
+        	Map<Integer, List<String>> pageMap = new HashMap<Integer, List<String>>();
+        	
+        	int nCount = 0;
 
-		try {
+        	for(IndexResult tuple : redisResult)
+        	{
+        		OmList.add(tuple.getPn());
+        		
+        		nCount++;
+        		
+        		// 先取500筆以上即可
+            	if(nCount > 500)
+            		break;
+        	}
+        	
+        }
+        
+        OmList = CommonUtil.removeSpaceList(OmList);
+//        20160304 fix paging bug 
+//        {
+//        	List<String> pageList = new ArrayList<String> ();
+//        	Map<Integer, List<String>> pageMap = new HashMap<Integer, List<String>>();
+//        	
+//        	int gPage = 0;
+//        	int gWeight = 0;
+//        	for(IndexResult tuple : redisResult)
+//        	{
+//        		if(!uniqPn.containsKey(tuple.getPn()))
+//            	{
+//        			pageList.add(tuple.getPn());
+//        			
+//            		uniqPn.put(tuple.getPn(), 1);
+//            		
+//            		
+//            		if(gWeight != tuple.getWeight())
+//            		{
+//        				if(gPage > 0)
+//        				{
+//        					pageMap.put(gPage - 1, pageList);
+//        					
+//        					pageList = new ArrayList<String> ();
+//        				}
+//        				
+//        				gPage++;
+//        				gWeight = tuple.getWeight();
+//            		}
+//            	}
+//        	}
+//        	// do it again
+//        	if(redisResult.size() > 0)
+//        	{
+//        		pageMap.put(gPage - 1, pageList);
+//
+//        	}
+//        	
+//        	int aPage = 0;
+//        	// set area by weight
+//        	for(int i=(currentPage - 1) * pageSize; i < currentPage * pageSize; i++)
+//            {
+//            	if(i<gPage)
+//            	{
+//            		List<String> pList = pageMap.get(i);
+//            		OmList.addAll(pList);
+//            	}
+//            }
+//        	
+//        	nTotalCount = gPage;
+//        }
+    	
+   
+        StopWatch watch = new StopWatch("OrderManager");
+        
+        OrderManager om = new OrderManager();
+        if(nSearchType == 1)	// 以純料號搜尋
+        {
+        	//result = om.getProductByGroupInStore(OmList);
+        	
+        	// 20160129 改用深度搜尋的分頁法
+        	result = om.getProductByGroupInStoreDeep(0, 0, 0, null, null, OmList, currentPage, pageSize);
+        }
+        else
+        	result = om.getProductByGroupInStoreIdDeep(0, 0, 0, null, null, OmList, currentPage, pageSize);
+//          20160304 fix paging bug 
+//        {
+//        	result = om.getProductByGroupInStoreId(OmList);
+//        	result.setTotalCount(nTotalCount);
+//        }
+        
+        watch.getElapseTimeOrderResult(keyQuery, OmList);
 
-			Statement stmt = null;
-			ResultSet rs = null;
-
-			try {
-				stmt = conn.createStatement();
-				rs = stmt.executeQuery(strSql);
-				while (rs.next())
-					sList.add(new IndexShort(rs.getString(1), rs.getString(2)));
-				// System.out.println(rs.getString(0));
-			}
-
-			finally {
-
-				attemptClose(rs);
-				attemptClose(stmt);
-
-			}
-
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-
-		return sList;
+        // 去除逗號
+        strHighLight = strHighLight.substring(0, strHighLight.length() - 1);
+        result.setHighLight(strHighLight);
+        
+        return result;
 	}
+	
+
 	
 	public List<String> GetQueryByEachWord(String strData, Connection conn, CRFClassifier<CoreLabel> segmenter)
 	{
@@ -248,9 +1228,9 @@ public class FuzzyInstance {
         
         
         // 取得關鍵字調整
-        List<IndexAdj> adjust = GetAdjust(conn);
+        List<IndexAdj> adjust = FuzzyManagerModel.GetAdjust();
         // 取得縮寫字調整
-        List<IndexShort> breif = GetShort(conn);
+        List<IndexShort> breif = FuzzyManagerModel.GetShort();
         
      // 20150729 for 精密搜尋
     	int order = 0;
@@ -624,222 +1604,222 @@ public class FuzzyInstance {
 	}
 	
 	
-	public List<String> GetQuery(String strData, Connection conn, CRFClassifier<CoreLabel> segmenter) {
-		
-		long startTime = System.currentTimeMillis();
-		
-		long elapsedSqlTime = 0L;
-		
-		String[] strFullword = null;
-		List<String> sList = new ArrayList<String>();
-		String sNumber = "20000";
-		int nTotal = 20;
-		
-		String sCombine = "";
-		
-		String delimiters = "[\\p{Punct}\\s]+";
-
-		if (strData != null && !strData.isEmpty())
-		{
-			strData = strData.toUpperCase();
-			strFullword = strData.split(delimiters);
-		}
-		else
-			return sList;
-
-		String strSql = "";
-		
-		HashMap<String,Float> PnWeightMap = new HashMap<String,Float>();
-		ValueComparator bvc =  new ValueComparator(PnWeightMap);
-        TreeMap<String,Float> sorted_map = new TreeMap<String,Float>(bvc);
-        
-        // 取得關鍵字調整
-        List<IndexAdj> adjust = GetAdjust(conn);
-
-		if (strFullword != null) {
-			for (String stoken : strFullword) {
-
-				strSql = "";
-				
-				if (SkipWord(stoken) || stoken.length() == 0)
-					continue;
-				
-				String sKeyword = "";
-				String sFullword = "";
-				sList.clear();
-				
-				sKeyword = stoken;
-
-				List<String> segmented = segmenter.segmentString(stoken);
-				
-				//List<String> segmented = new ArrayList<String>();
-				//segmented.add(stoken);
-	
-				if (segmented != null) {
-					for (String element : segmented) {
-
-						if (SkipWord(element) || element.length() == 0)
-							continue;
-
-						sList.add(element);
-						
-
-					}
-				}
-				
-				// 目前先都不要用like
-				// 再加一個不要段字的
-				sList.remove(stoken);
-				//sList.add(stoken);
-				strSql += "(select pn, weight, fullword, kind from qeindex where word = '"
-						+ stoken + "' and weight >= 0.5 order by weight desc limit " + sNumber + ") ";
-				strSql += " union ";
-				
-				for (int i = 0; i < sList.size(); i++) {
-					
-					if(!stoken.equals((sList).get(i)))
-					{
-						
-						strSql += "(select pn, weight, fullword, kind from qeindex where word = '"
-								+ sList.get(i) + "' and weight >= 0.5 order by weight desc limit " + sNumber + ") ";
-						strSql += " union ";
-						
-					}
-				}
-				
-				/*
-				// 再加一個不要段字的
-				sList.remove(stoken);
-				//sList.add(stoken);
-				strSql += "(select pn, weight, fullword, kind from qeindex where word like '"
-						+ stoken + "%' order by weight desc limit " + sNumber + ") ";
-				strSql += " union ";
-				
-				for (int i = 0; i < sList.size(); i++) {
-					
-					if(!stoken.equals((sList).get(i)))
-					{
-						// 為了效能，先排除數字跟短字的模糊搜尋 
-						if(isNumeric(sList.get(i)) || sList.get(i).length() < 4)
-						{
-							strSql += "(select pn, weight, fullword, kind from qeindex where word = '"
-									+ sList.get(i) + "' order by weight desc limit " + sNumber + ") ";
-							strSql += " union ";
-						}
-						else
-						{
-							strSql += "(select pn, weight, fullword, kind from qeindex where word like '"
-									+ sList.get(i) + "%' order by weight desc limit " + sNumber + ") ";
-							strSql += " union ";
-						}
-					}
-				}
-				
-				*/
-
-				strSql = strSql.substring(0, strSql.length() - 7);
-				
-				long startSqlTime = System.currentTimeMillis();
-				
-				List<IndexRate> sIndexRate = GetAllIndexRate(strSql, conn);
-				
-				long stopSqlTime = System.currentTimeMillis();
-				elapsedSqlTime += stopSqlTime - startSqlTime;
-				
-				sCombine += strSql + ":" + elapsedSqlTime + ";";
-				
-				// 調整權證正確性
-				for(IndexRate iter:sIndexRate)
-				{
-					String lngWord = "";
-					String shtWord = "";
-					float addWeight = 0f;
-					
-					// 查詢字與關鍵字比對長度後對換
-					// 方便string compare時找頻率
-					if(iter.getFullword().length() >= sKeyword.length())
-					{
-						lngWord = iter.getFullword();
-						shtWord = sKeyword;
-						
-						// 部分相同
-						addWeight = 2.5f;
-					}
-					else
-					{
-						lngWord = sKeyword;
-						shtWord = iter.getFullword();
-						
-						// 查詢字大於關鍵字
-						addWeight = 0.75f;
-					}
-					
-					if(CountStringOccurrences(lngWord, shtWord) >= 1)
-					{
-						// 完全符合時提高
-						if(lngWord.length() == shtWord.length())
-							iter.setWeight(iter.getWeight() + 5);
-						else
-							iter.setWeight(iter.getWeight() + addWeight);
-					}
-					else
-						iter.setWeight(0.01f);
-					
-					// 調整關鍵字(依照類別)
-					for(IndexAdj adj:adjust)
-					{
-						if(adj.getWord().equalsIgnoreCase(iter.getFullword()) && adj.getKind()==iter.getKind())
-							iter.setWeight(iter.getWeight() + adj.getAdjust());
-
-						if(adj.getWord().equalsIgnoreCase(iter.getFullword()) && adj.getKind()!=iter.getKind())
-							iter.setWeight(iter.getWeight() - 2);
-					
-					}
-					
-					if(PnWeightMap.containsKey(iter.getPn()))
-		            {
-						Float fWeight = PnWeightMap.get(iter.getPn());
-						
-						PnWeightMap.put(iter.getPn(), fWeight+iter.getWeight());
-
-		            }
-		            else {
-
-		            	PnWeightMap.put(iter.getPn(), iter.getWeight());
-		            }
-				}
-				
-				
-			}
-		}
-		
-		// sort 後傳回
-		sorted_map.putAll(PnWeightMap);
-		
-			
-		
-		List<String> sPnReturn = new ArrayList<String>();
-		
-		int iCount = 0;
-		
-		for(Map.Entry<String,Float> entry : sorted_map.entrySet()) {
-			sPnReturn.add(entry.getKey());
-			iCount++;
-			
-			if(iCount >= nTotal)
-				break;
-		}
-		
-		long stopTime = System.currentTimeMillis();
-	    long elapsedTime = stopTime - startTime;
-	    
-	    // log query history
-	    //InsertQueryLog(strData, "AllTime: " + elapsedTime + ", SqlTime : " + elapsedSqlTime + ", Sql : " + sCombine + "; " + sorted_map.toString(), conn);
-	    //InsertQueryLog(strData, "AllTime: " + elapsedTime + ", SqlTime : " + elapsedSqlTime + ", Sql : " + sCombine, conn);
-	    InsertQueryLog(strData, "AllTime: " + elapsedTime + ", SqlTime : " + elapsedSqlTime + ", Sql : " + sCombine + "; " + sPnReturn.toString(), conn);
-
-		return sPnReturn;
-	}
+//	public List<String> GetQuery(String strData, Connection conn, CRFClassifier<CoreLabel> segmenter) {
+//		
+//		long startTime = System.currentTimeMillis();
+//		
+//		long elapsedSqlTime = 0L;
+//		
+//		String[] strFullword = null;
+//		List<String> sList = new ArrayList<String>();
+//		String sNumber = "20000";
+//		int nTotal = 20;
+//		
+//		String sCombine = "";
+//		
+//		String delimiters = "[\\p{Punct}\\s]+";
+//
+//		if (strData != null && !strData.isEmpty())
+//		{
+//			strData = strData.toUpperCase();
+//			strFullword = strData.split(delimiters);
+//		}
+//		else
+//			return sList;
+//
+//		String strSql = "";
+//		
+//		HashMap<String,Float> PnWeightMap = new HashMap<String,Float>();
+//		ValueComparator bvc =  new ValueComparator(PnWeightMap);
+//        TreeMap<String,Float> sorted_map = new TreeMap<String,Float>(bvc);
+//        
+//        // 取得關鍵字調整
+//        List<IndexAdj> adjust = GetAdjust(conn);
+//
+//		if (strFullword != null) {
+//			for (String stoken : strFullword) {
+//
+//				strSql = "";
+//				
+//				if (SkipWord(stoken) || stoken.length() == 0)
+//					continue;
+//				
+//				String sKeyword = "";
+//				String sFullword = "";
+//				sList.clear();
+//				
+//				sKeyword = stoken;
+//
+//				List<String> segmented = segmenter.segmentString(stoken);
+//				
+//				//List<String> segmented = new ArrayList<String>();
+//				//segmented.add(stoken);
+//	
+//				if (segmented != null) {
+//					for (String element : segmented) {
+//
+//						if (SkipWord(element) || element.length() == 0)
+//							continue;
+//
+//						sList.add(element);
+//						
+//
+//					}
+//				}
+//				
+//				// 目前先都不要用like
+//				// 再加一個不要段字的
+//				sList.remove(stoken);
+//				//sList.add(stoken);
+//				strSql += "(select pn, weight, fullword, kind from qeindex where word = '"
+//						+ stoken + "' and weight >= 0.5 order by weight desc limit " + sNumber + ") ";
+//				strSql += " union ";
+//				
+//				for (int i = 0; i < sList.size(); i++) {
+//					
+//					if(!stoken.equals((sList).get(i)))
+//					{
+//						
+//						strSql += "(select pn, weight, fullword, kind from qeindex where word = '"
+//								+ sList.get(i) + "' and weight >= 0.5 order by weight desc limit " + sNumber + ") ";
+//						strSql += " union ";
+//						
+//					}
+//				}
+//				
+//				/*
+//				// 再加一個不要段字的
+//				sList.remove(stoken);
+//				//sList.add(stoken);
+//				strSql += "(select pn, weight, fullword, kind from qeindex where word like '"
+//						+ stoken + "%' order by weight desc limit " + sNumber + ") ";
+//				strSql += " union ";
+//				
+//				for (int i = 0; i < sList.size(); i++) {
+//					
+//					if(!stoken.equals((sList).get(i)))
+//					{
+//						// 為了效能，先排除數字跟短字的模糊搜尋 
+//						if(isNumeric(sList.get(i)) || sList.get(i).length() < 4)
+//						{
+//							strSql += "(select pn, weight, fullword, kind from qeindex where word = '"
+//									+ sList.get(i) + "' order by weight desc limit " + sNumber + ") ";
+//							strSql += " union ";
+//						}
+//						else
+//						{
+//							strSql += "(select pn, weight, fullword, kind from qeindex where word like '"
+//									+ sList.get(i) + "%' order by weight desc limit " + sNumber + ") ";
+//							strSql += " union ";
+//						}
+//					}
+//				}
+//				
+//				*/
+//
+//				strSql = strSql.substring(0, strSql.length() - 7);
+//				
+//				long startSqlTime = System.currentTimeMillis();
+//				
+//				List<IndexRate> sIndexRate = GetAllIndexRate(strSql, conn);
+//				
+//				long stopSqlTime = System.currentTimeMillis();
+//				elapsedSqlTime += stopSqlTime - startSqlTime;
+//				
+//				sCombine += strSql + ":" + elapsedSqlTime + ";";
+//				
+//				// 調整權證正確性
+//				for(IndexRate iter:sIndexRate)
+//				{
+//					String lngWord = "";
+//					String shtWord = "";
+//					float addWeight = 0f;
+//					
+//					// 查詢字與關鍵字比對長度後對換
+//					// 方便string compare時找頻率
+//					if(iter.getFullword().length() >= sKeyword.length())
+//					{
+//						lngWord = iter.getFullword();
+//						shtWord = sKeyword;
+//						
+//						// 部分相同
+//						addWeight = 2.5f;
+//					}
+//					else
+//					{
+//						lngWord = sKeyword;
+//						shtWord = iter.getFullword();
+//						
+//						// 查詢字大於關鍵字
+//						addWeight = 0.75f;
+//					}
+//					
+//					if(CountStringOccurrences(lngWord, shtWord) >= 1)
+//					{
+//						// 完全符合時提高
+//						if(lngWord.length() == shtWord.length())
+//							iter.setWeight(iter.getWeight() + 5);
+//						else
+//							iter.setWeight(iter.getWeight() + addWeight);
+//					}
+//					else
+//						iter.setWeight(0.01f);
+//					
+//					// 調整關鍵字(依照類別)
+//					for(IndexAdj adj:adjust)
+//					{
+//						if(adj.getWord().equalsIgnoreCase(iter.getFullword()) && adj.getKind()==iter.getKind())
+//							iter.setWeight(iter.getWeight() + adj.getAdjust());
+//
+//						if(adj.getWord().equalsIgnoreCase(iter.getFullword()) && adj.getKind()!=iter.getKind())
+//							iter.setWeight(iter.getWeight() - 2);
+//					
+//					}
+//					
+//					if(PnWeightMap.containsKey(iter.getPn()))
+//		            {
+//						Float fWeight = PnWeightMap.get(iter.getPn());
+//						
+//						PnWeightMap.put(iter.getPn(), fWeight+iter.getWeight());
+//
+//		            }
+//		            else {
+//
+//		            	PnWeightMap.put(iter.getPn(), iter.getWeight());
+//		            }
+//				}
+//				
+//				
+//			}
+//		}
+//		
+//		// sort 後傳回
+//		sorted_map.putAll(PnWeightMap);
+//		
+//			
+//		
+//		List<String> sPnReturn = new ArrayList<String>();
+//		
+//		int iCount = 0;
+//		
+//		for(Map.Entry<String,Float> entry : sorted_map.entrySet()) {
+//			sPnReturn.add(entry.getKey());
+//			iCount++;
+//			
+//			if(iCount >= nTotal)
+//				break;
+//		}
+//		
+//		long stopTime = System.currentTimeMillis();
+//	    long elapsedTime = stopTime - startTime;
+//	    
+//	    // log query history
+//	    //InsertQueryLog(strData, "AllTime: " + elapsedTime + ", SqlTime : " + elapsedSqlTime + ", Sql : " + sCombine + "; " + sorted_map.toString(), conn);
+//	    //InsertQueryLog(strData, "AllTime: " + elapsedTime + ", SqlTime : " + elapsedSqlTime + ", Sql : " + sCombine, conn);
+//	    InsertQueryLog(strData, "AllTime: " + elapsedTime + ", SqlTime : " + elapsedSqlTime + ", Sql : " + sCombine + "; " + sPnReturn.toString(), conn);
+//
+//		return sPnReturn;
+//	}
 	
 	protected void InsertQueryLog(String keyword, String sql, Connection conWriter)
 	{
@@ -860,8 +1840,8 @@ public class FuzzyInstance {
 
 		} finally {
 
-			attemptClose(pst);
-			attemptClose(conWriter);
+			DbHelper.attemptClose(pst);
+			
 
 		}
 	}
@@ -887,8 +1867,8 @@ public class FuzzyInstance {
 
 			finally {
 
-				attemptClose(rs);
-				attemptClose(stmt);
+				DbHelper.attemptClose(rs);
+				DbHelper.attemptClose(stmt);
 				
 			}
 
@@ -899,32 +1879,7 @@ public class FuzzyInstance {
 		return snum;
 	}
 	
-	protected void attemptClose(ResultSet o) {
-		try {
-			if (o != null)
-				o.close();
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-	}
-
-	protected void attemptClose(Statement o) {
-		try {
-			if (o != null)
-				o.close();
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-	}
-
-	protected void attemptClose(Connection o) {
-		try {
-			if (o != null)
-				o.close();
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-	}
+	
 	
 	protected boolean SkipWord(String strIn) {
 		boolean bHave = false;
@@ -959,8 +1914,8 @@ public class FuzzyInstance {
 
 			finally {
 
-				attemptClose(rs);
-				attemptClose(stmt);
+				DbHelper.attemptClose(rs);
+				DbHelper.attemptClose(stmt);
 
 			}
 
@@ -1099,7 +2054,7 @@ public class FuzzyInstance {
 
 		} finally {
 
-			attemptClose(pst);
+			DbHelper.attemptClose(pst);
 		}
 	}
 	
@@ -1117,5 +2072,225 @@ public class FuzzyInstance {
 
 			it.remove(); // avoids a ConcurrentModificationException
 		}
+	}
+
+	public int GetMaxIndexID() {
+		// TODO Auto-generated method stub
+		
+		String strSql = "select page from qeindex order by page desc limit 1";
+		
+		int pid = 0;
+		
+		try {
+
+			Connection con = DbHelper.connectFm();
+			
+			Statement stmt = null;
+			ResultSet rs = null;
+
+			try {
+				stmt = con.createStatement();
+				rs = stmt.executeQuery(strSql);
+				while (rs.next())
+					pid = Integer.parseInt(rs.getString(1));
+				// System.out.println(rs.getString(0));
+			}
+
+			finally {
+
+				DbHelper.attemptClose(rs);
+				DbHelper.attemptClose(stmt);
+				DbHelper.attemptClose(con);
+			}
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return pid;
+	}
+
+	public int GetIndexIDStatus(int pid) {
+		// TODO Auto-generated method stub
+		
+		String strSql = "select * from qeindex where page = " + pid;
+	
+		int Status = 0;
+		
+		try {
+
+			Connection con = DbHelper.connectFm();
+			
+			Statement stmt = null;
+			ResultSet rs = null;
+
+			try {
+				stmt = con.createStatement();
+				rs = stmt.executeQuery(strSql);
+				while (rs.next())
+					Status = 1;
+				// System.out.println(rs.getString(0));
+			}
+
+			finally {
+
+				DbHelper.attemptClose(rs);
+				DbHelper.attemptClose(stmt);
+				DbHelper.attemptClose(con);
+			}
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return Status;
+	}
+	
+	// 20160415 多料號搜尋(Leo更改規格 to Map<pn,Map<mfs,Map<supplier_id,List<pid>>>>)
+	public QueryResult QueryProductByMultipleSearch(String[] parts)
+	{
+		// 回傳值
+        QueryResult result = new QueryResult();
+        
+        /*
+        LinkedHashMap<String, Map<String, List<Integer>>> resultMapMfs1 = new LinkedHashMap<String, Map<String, List<Integer>>>();
+        LinkedHashMap<String, Map<String, List<Integer>>> resultMapMfs2 = new LinkedHashMap<String, Map<String, List<Integer>>>();
+        LinkedHashMap<String, Map<String, List<Integer>>> resultMapMfs3 = new LinkedHashMap<String, Map<String, List<Integer>>>();
+        
+        LinkedHashMap<String, Map<String, List<Integer>>> resultMapSupplier1 = new LinkedHashMap<String, Map<String, List<Integer>>>();
+        LinkedHashMap<String, Map<String, List<Integer>>> resultMapSupplier2 = new LinkedHashMap<String, Map<String, List<Integer>>>();
+        LinkedHashMap<String, Map<String, List<Integer>>> resultMapSupplier3 = new LinkedHashMap<String, Map<String, List<Integer>>>();
+        
+        result.setPidListGroupMfs1(resultMapMfs1);
+        result.setPidListGroupMfs2(resultMapMfs2);
+        result.setPidListGroupMfs3(resultMapMfs3);
+        
+        result.setPidListGroupSupplier1(resultMapSupplier1);
+        result.setPidListGroupSupplier2(resultMapSupplier2);
+        result.setPidListGroupSupplier3(resultMapSupplier3);
+        */
+        
+        
+        LinkedHashMap<String, Map<String, Map<Integer, Integer>>> returnMapMfs1 = new LinkedHashMap<String, Map<String, Map<Integer, Integer>>>();
+    	LinkedHashMap<String, Map<String, Map<Integer, Integer>>> returnMapMfs2 = new LinkedHashMap<String, Map<String, Map<Integer, Integer>>>();
+    	LinkedHashMap<String, Map<String, Map<Integer, Integer>>> returnMapMfs3 = new LinkedHashMap<String, Map<String, Map<Integer, Integer>>>();
+   
+    	result.setPidListGroupMfs1(returnMapMfs1);
+    	result.setPidListGroupMfs2(returnMapMfs2);
+    	result.setPidListGroupMfs3(returnMapMfs3);
+    	
+    	
+     
+        // 用何種方式搜索
+        int nSearchType = 0;
+        
+        // 分析輸入的查詢
+        ArrayList<MultiKeyword> keyQuery = KeywordLogic.GetAnalyzedKeywords(parts);
+     
+        
+        // 如果輸入的查詢有問題，回傳空的結果
+        if(keyQuery.size()== 0)
+        {
+        	return result;
+        }
+        // 先用pm搜尋
+        keyQuery = PmSearchLogic.PmSearchMulti(keyQuery);
+        
+        // 再查詢非完全匹配的
+        keyQuery = PmSearchLogic.PmSearchMultiLike(keyQuery);
+        
+        // 再查詢完全不匹配的
+        keyQuery = RedisSearchLogic.RedisSearchMulti(keyQuery);
+        
+        // 決定誰該
+        OrderManager om = new OrderManager();
+        
+        result = om.formatFromMultiKeyword(keyQuery);
+        
+		return result;
+	}
+
+	// 20160517 搜尋參數
+		public Map<String,Map<String,MultipleParam>> QueryParamterByMultipleSearch(String[] parts)
+		{
+			// 回傳值
+			Map<String,Map<String,MultipleParam>> result = new HashMap<String,Map<String,MultipleParam>>();
+	        
+	   
+	     
+	        // 用何種方式搜索
+	        int nSearchType = 0;
+	        
+	        // 分析輸入的查詢
+	        ArrayList<MultiKeyword> keyQuery = KeywordLogic.GetAnalyzedKeywords(parts);
+	     
+	        
+	        // 如果輸入的查詢有問題，回傳空的結果
+	        if(keyQuery.size()== 0)
+	        {
+	        	return result;
+	        }
+	        // 先用pm搜尋
+	        keyQuery = PmSearchLogic.PmSearchMulti(keyQuery);
+	        
+	        // 再查詢非完全匹配的
+	        keyQuery = PmSearchLogic.PmSearchMultiLike(keyQuery);
+	        
+	        // 再查詢完全不匹配的
+	        keyQuery = RedisSearchLogic.RedisSearchMulti(keyQuery);
+	        
+	        // 決定誰該
+	        OrderManager om = new OrderManager();
+	        
+	        result = om.formatParamMultiKeyword(keyQuery);
+	        
+			return result;
+		}
+
+
+	public QueryResult QueryProductByMultipleSearchJson(String parts) {
+		// 回傳值
+        QueryResult result = new QueryResult();
+        
+     
+        
+        
+        LinkedHashMap<String, Map<String, Map<Integer, Integer>>> returnMapMfs1 = new LinkedHashMap<String, Map<String, Map<Integer, Integer>>>();
+    	LinkedHashMap<String, Map<String, Map<Integer, Integer>>> returnMapMfs2 = new LinkedHashMap<String, Map<String, Map<Integer, Integer>>>();
+    	LinkedHashMap<String, Map<String, Map<Integer, Integer>>> returnMapMfs3 = new LinkedHashMap<String, Map<String, Map<Integer, Integer>>>();
+   
+    	result.setPidListGroupMfs1(returnMapMfs1);
+    	result.setPidListGroupMfs2(returnMapMfs2);
+    	result.setPidListGroupMfs3(returnMapMfs3);
+    	
+    	
+     
+        // 用何種方式搜索
+        int nSearchType = 0;
+        
+        // 分析輸入的查詢
+        ArrayList<MultiKeyword> keyQuery = KeywordLogic.GetAnalyzedKeywordsJson(parts);
+     
+        
+        // 如果輸入的查詢有問題，回傳空的結果
+        if(keyQuery.size()== 0)
+        {
+        	return result;
+        }
+        // 先用pm搜尋
+        keyQuery = PmSearchLogic.PmSearchMulti(keyQuery);
+        
+        // 再查詢非完全匹配的
+        keyQuery = PmSearchLogic.PmSearchMultiLike(keyQuery);
+        
+        // 再查詢完全不匹配的
+        keyQuery = RedisSearchLogic.RedisSearchMulti(keyQuery);
+        
+        // 決定誰該
+        OrderManager om = new OrderManager();
+        
+        result = om.formatFromMultiKeyword(keyQuery);
+        
+		return result;
 	}
 }

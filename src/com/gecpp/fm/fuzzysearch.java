@@ -26,6 +26,7 @@ import java.sql.*;
 
 import javax.sql.DataSource;
 
+import com.gecpp.fm.Dao.IndexRate;
 import com.mchange.v2.c3p0.ComboPooledDataSource;
 import com.mchange.v2.c3p0.DataSources;
 
